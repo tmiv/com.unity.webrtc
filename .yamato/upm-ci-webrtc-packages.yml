@@ -90,8 +90,10 @@ test_{{ package.name }}_{{ backend }}_{{ platform.name }}_{{ editor.version }}:
     - cd UnityPhysicsExamples && unity-downloader-cli -u {{ editor.version }} -c editor --wait --published
     - dir
     - dir UnityPhysicsExamples
+    - dir WebRTC~/Packages/com.unity.webrtc/Tests
+    
 {% for config in platform.test_configurations %}
-    - cd UnityPhysicsExamples && {{ unity_launcher[platform.name] }} --suite=editor --suite=playmode --scripting-backend {{ backend }} --configuration={{ config }} --testproject=../WebRTC~/ --editor-location=.Editor --artifacts_path=upm-ci~/test-results --stdout-filter=minimal    
+    - cd UnityPhysicsExamples && {{ unity_launcher[platform.name] }} --suite=editor --suite=playmode --scripting-backend {{ backend }} --configuration={{ config }} --testproject=../WebRTC~ --editor-location=.Editor --artifacts_path=upm-ci~/test-results --stdout-filter=minimal    
 {% endfor %}
   
   triggers:
