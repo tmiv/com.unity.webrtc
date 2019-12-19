@@ -23,5 +23,13 @@ cmake -GXcode .
 xcodebuild -scheme webrtc -configuration Release build
 xcodebuild -scheme WebRTCPluginTest -configuration Release build
 
+echo $BOKKEN_DEVICE_IP
+echo $BOKKEN_DEVICE_IP
+echo $BOKKEN_DEVICE_IP
+echo $BOKKEN_DEVICE_IP
+
+scp -i ~/.ssh/id_rsa_macmini -o "StrictHostKeyChecking=no" -r "$SOLUTION_DIR/WebRTCPluginTest/Release" bokken@$BOKKEN_DEVICE_IP:~/Test
+ssh -i ~/.ssh/id_rsa_macmini -o "StrictHostKeyChecking=no" bokken@$BOKKEN_DEVICE_IP '~/Test/WebRTCPluginTest'
+
 # Run UnitTest
-"$SOLUTION_DIR/WebRTCPluginTest/Release/WebRTCPluginTest"
+#$SOLUTION_DIR/WebRTCPluginTest/Release/WebRTCPluginTest"
