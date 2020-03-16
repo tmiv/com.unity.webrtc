@@ -205,6 +205,24 @@ namespace Unity.WebRTC.RuntimeTest
         [UnityTest]
         [Timeout(1000)]
         [Category("PeerConnection")]
+        public IEnumerator GetStats()
+        {
+            var config = GetConfiguration();
+            var peer = new RTCPeerConnection(ref config);
+            var op = peer.GetStats();
+            yield return op;
+            Assert.False(op.IsError);
+            Assert.True(op.IsDone);
+            Assert.NotNull(op.Value);
+            Assert.Greater(op.Value.GetEnumerator().Count(), 0);
+
+            peer.Close();
+            peer.Dispose();
+        }
+
+        [UnityTest]
+        [Timeout(1000)]
+        [Category("PeerConnection")]
         public IEnumerator SetRemoteDescription()
         {
             var config = GetConfiguration();

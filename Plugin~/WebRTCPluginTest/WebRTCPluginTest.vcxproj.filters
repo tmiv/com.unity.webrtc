@@ -80,6 +80,7 @@
     </ClCompile>
     <ClCompile Include="..\WebRTCPlugin\MediaStreamObserver.cpp" />
     <ClCompile Include="..\WebRTCPlugin\SetSessionDescriptionObserver.cpp" />
+    <ClCompile Include="..\WebRTCPlugin\PeerConnectionStatsCollectorCallback.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\WebRTCPlugin\Context.h" />
@@ -183,6 +184,7 @@
     </ClInclude>
     <ClInclude Include="..\WebRTCPlugin\MediaStreamObserver.h" />
     <ClInclude Include="..\WebRTCPlugin\SetSessionDescriptionObserver.h" />
+    <ClInclude Include="..\WebRTCPlugin\PeerConnectionStatsCollectorCallback.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

@@ -1,20 +1,16 @@
 #include "pch.h"
 #include "Context.h"
 #include "PeerConnectionObject.h"
-#include "WebRTCMacros.h"
 #include "SetSessionDescriptionObserver.h"
 
 namespace WebRTC
 {
     PeerConnectionObject::PeerConnectionObject(Context& context) : context(context)
     {
-        m_statsCollectorCallback = new PeerConnectionStatsCollectorCallback(this);
-        
     }
 
     PeerConnectionObject::~PeerConnectionObject()
     {
-        SAFE_DELETE(m_statsCollectorCallback);
         if (connection == nullptr)
         {
             return;
@@ -259,11 +255,6 @@ namespace WebRTC
         out.copy(desc.sdp, out.size());
         desc.sdp[out.size()] = '\0';
         return true;
-    }
-
-    void PeerConnectionObject::CollectStats()
-    {
-        connection->GetStats(m_statsCollectorCallback);
     }
 
 #pragma warning(push)

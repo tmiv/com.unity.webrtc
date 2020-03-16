@@ -16,27 +16,21 @@ namespace WebRTC
 
     void SetSessionDescriptionObserver::RegisterDelegateOnSuccess(DelegateSetSessionDescSuccess onSuccess)
     {
-        m_vectorDelegateSetSDSuccess.push_back(onSuccess);
+        m_delegateSuccess = onSuccess;
 	}
 
     void SetSessionDescriptionObserver::RegisterDelegateOnFailure(DelegateSetSessionDescFailure onFailure)
     {
-        m_vectorDelegateSetSDFailure.push_back(onFailure);
+        m_delegateFailure = onFailure;
     }
 
     void SetSessionDescriptionObserver::OnSuccess()
     {
-        for (auto delegate: m_vectorDelegateSetSDSuccess)
-        {
-            delegate(m_connection);
-        }
+        m_delegateSuccess(m_connection);
     }
 
     void SetSessionDescriptionObserver::OnFailure(const std::string& error)
     {
-        for (auto delegate : m_vectorDelegateSetSDFailure)
-        {
-            delegate(m_connection);
-        }
+        m_delegateFailure(m_connection);
     }
 }

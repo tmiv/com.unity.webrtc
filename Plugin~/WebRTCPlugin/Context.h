@@ -9,6 +9,7 @@ namespace WebRTC
     class IGraphicsDevice;
     class MediaStreamObserver;
     class SetSessionDescriptionObserver;
+    class PeerConnectionStatsCollectorCallback;
     class ContextManager
     {
     public:
@@ -66,6 +67,8 @@ namespace WebRTC
         void RemoveObserver(const webrtc::PeerConnectionInterface* connection);
         SetSessionDescriptionObserver* GetObserver(webrtc::PeerConnectionInterface* connection);
         void DeletePeerConnection(PeerConnectionObject* obj) { m_mapClients.erase(obj); }
+        void AddStatsCallback(const webrtc::PeerConnectionInterface* connection, PeerConnectionStatsCollectorCallback* callback);
+        PeerConnectionStatsCollectorCallback* GetStatsCallback(const webrtc::PeerConnectionInterface* connection);
 
         // DataChannel
         DataChannelObject* CreateDataChannel(PeerConnectionObject* obj, const char* label, const RTCDataChannelInit& options);
@@ -94,6 +97,8 @@ namespace WebRTC
         std::map<const std::string, rtc::scoped_refptr<webrtc::MediaStreamInterface>> m_mapMediaStream;
         std::map<const webrtc::MediaStreamInterface*, std::unique_ptr<MediaStreamObserver>> m_mapMediaStreamObserver;
         std::map<const webrtc::PeerConnectionInterface*, rtc::scoped_refptr<SetSessionDescriptionObserver>> m_mapSetSessionDescriptionObserver;
+        std::map < const webrtc::PeerConnectionInterface*, PeerConnectionStatsCollectorCallback*> m_mapStatsCollectorCallback;
+
         std::map<const webrtc::MediaStreamTrackInterface*, std::unique_ptr<VideoEncoderParameter>> m_mapVideoEncoderParameter;
         std::map<const DataChannelObject*, std::unique_ptr<DataChannelObject>> m_mapDataChannels;
     };

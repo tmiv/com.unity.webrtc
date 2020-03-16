@@ -14,10 +14,10 @@ namespace Unity.WebRTC
 
     public class RTCPeerConnection : IDisposable
     {
-        public Action<string> OnStatsDelivered = null;
+        internal Action<IntPtr> OnStatsDelivered = null;
 
         private int m_id;
-        private IntPtr self;
+        internal IntPtr self;
         private DelegateOnIceConnectionChange onIceConnectionChange;
         private DelegateOnIceCandidate onIceCandidate;
         private DelegateOnDataChannel onDataChannel;
@@ -168,6 +168,16 @@ namespace Unity.WebRTC
             }
         }
 
+        internal DelegateCollectStats OnGetStats
+        {
+            get => OnGetStats;
+            set
+            {
+                OnGetStats = value;
+                WebRTC.Context.PeerConnectionGetStats(self);
+            }
+        }
+
         [AOT.MonoPInvokeCallback(typeof(DelegateNativeOnIceCandidate))]
         static void PCOnIceCandidate(IntPtr ptr, string sdp, string sdpMid, int sdpMlineIndex)
         {
@@ -271,11 +281,8 @@ namespace Unity.WebRTC
 
         void InitCallback()
         {
-            onCreateSDSuccess = OnSuccessCreateSessionDesc;
-            onCreateSDFailure = OnFailureCreateSessionDesc;
-            m_onStatsDeliveredCallback = OnStatsDeliveredCallback;
-            NativeMethods.PeerConnectionRegisterCallbackCreateSD(self, onCreateSDSuccess, onCreateSDFailure);
-            NativeMethods.PeerConnectionRegisterCallbackCollectStats(self, m_onStatsDeliveredCallback);
+            NativeMethods.PeerConnectionRegisterCallbackCreateSD(self, OnSuccessCreateSessionDesc, OnFailureCreateSessionDesc);
+            WebRTC.Context.PeerConnectionRegisterCallbackCollectStats(self, OnStatsDeliveredCallback);
         }
 
         public void Close()
@@ -366,11 +373,9 @@ namespace Unity.WebRTC
             return op;
         }
 
-        public void CollectStats()
+        public RTCStatsReportAsyncOperation GetStats()
         {
-            /// TODO:: define async operation class 
-            //m_opSetDesc = new RTCSessionDescriptionAsyncOperation();
-            //NativeMethods.PeerConnectionCollectStats(self);
+            return new RTCStatsReportAsyncOperation(this);
         }
 
         public RTCSessionDescription LocalDescription
@@ -482,12 +487,14 @@ namespace Unity.WebRTC
         }
 
         [AOT.MonoPInvokeCallback(typeof(DelegateCollectStats))]
-        static void OnStatsDeliveredCallback(IntPtr ptr, string stats)
+        static void OnStatsDeliveredCallback(IntPtr ptr, IntPtr statsReport)
         {
             WebRTC.SyncContext.Post(_ =>
             {
-                var connection = WebRTC.Table[ptr] as RTCPeerConnection;
-                connection?.OnStatsDelivered?.Invoke(stats);
+                if (WebRTC.Table[ptr] is RTCPeerConnection connection)
+                {
+                    connection.OnStatsDelivered(statsReport);
+                }
             }, null);
         }
     }

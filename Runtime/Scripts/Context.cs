@@ -111,6 +111,16 @@ namespace Unity.WebRTC
             NativeMethods.PeerConnectionRegisterOnSetSessionDescFailure(self, ptr, callback);
         }
 
+        public void PeerConnectionRegisterCallbackCollectStats(IntPtr ptr, DelegateCollectStats onGetStats)
+        {
+            NativeMethods.PeerConnectionRegisterCallbackCollectStats(self, ptr, onGetStats);
+        }
+
+        public void PeerConnectionGetStats(IntPtr ptr)
+        {
+            NativeMethods.PeerConnectionGetStats(self, ptr);
+        }
+
         public IntPtr CreateDataChannel(IntPtr ptr, string label, ref RTCDataChannelInit options)
         {
             return NativeMethods.ContextCreateDataChannel(self, ptr, label, ref options);

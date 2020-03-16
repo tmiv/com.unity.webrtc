@@ -17,7 +17,7 @@ namespace WebRTC
         ~SetSessionDescriptionObserver() = default;
     private:
         PeerConnectionObject* m_connection;
-        std::vector<DelegateSetSessionDescSuccess> m_vectorDelegateSetSDSuccess;
-        std::vector<DelegateSetSessionDescFailure> m_vectorDelegateSetSDFailure;
+        DelegateSetSessionDescSuccess m_delegateSuccess;
+        DelegateSetSessionDescFailure m_delegateFailure;
     };
 }

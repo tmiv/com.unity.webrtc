@@ -4,6 +4,7 @@ using UnityEngine;
 using System.Threading;
 using System.Collections;
 using System.Collections.Generic;
+using System.Text;
 
 namespace Unity.WebRTC
 {
@@ -363,9 +364,7 @@ namespace Unity.WebRTC
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     internal delegate void DelegateCreateSDSuccess(IntPtr ptr, RTCSdpType type, [MarshalAs(UnmanagedType.LPStr)] string sdp);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    internal delegate void DelegateCollectStats(IntPtr ptr, [MarshalAs(UnmanagedType.LPStr)] string stats);
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    internal delegate void DelegateCreateGetStats(IntPtr ptr, RTCSdpType type, [MarshalAs(UnmanagedType.LPStr)] string sdp);
+    internal delegate void DelegateCollectStats(IntPtr ptr, IntPtr reportPtr);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     internal delegate void DelegateCreateSDFailure(IntPtr ptr);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -440,7 +439,7 @@ namespace Unity.WebRTC
         [DllImport(WebRTC.Lib)]
         public static extern void PeerConnectionRegisterCallbackCreateSD(IntPtr ptr, DelegateCreateSDSuccess onSuccess, DelegateCreateSDFailure onFailure);
         [DllImport(WebRTC.Lib)]
-        public static extern void PeerConnectionRegisterCallbackCollectStats(IntPtr ptr, DelegateCollectStats onCollectStats);
+        public static extern void PeerConnectionRegisterCallbackCollectStats(IntPtr context, IntPtr ptr, DelegateCollectStats onGetStats);
         [DllImport(WebRTC.Lib)]
         public static extern void PeerConnectionRegisterOnSetSessionDescSuccess(IntPtr context, IntPtr connection, DelegateNativePeerConnectionSetSessionDescSuccess onSuccess);
         [DllImport(WebRTC.Lib)]
@@ -452,7 +451,7 @@ namespace Unity.WebRTC
         [DllImport(WebRTC.Lib)]
         public static extern void PeerConnectionSetLocalDescription(IntPtr context, IntPtr ptr, ref RTCSessionDescription desc);
         [DllImport(WebRTC.Lib)]
-        public static extern void PeerConnectionCollectStats(IntPtr ptr);
+        public static extern void PeerConnectionGetStats(IntPtr context, IntPtr ptr);
         [DllImport(WebRTC.Lib)]
         [return: MarshalAs(UnmanagedType.U1)]
         public static extern bool PeerConnectionGetLocalDescription(IntPtr ptr, ref RTCSessionDescription desc);
@@ -565,6 +564,10 @@ namespace Unity.WebRTC
         public static extern IntPtr GetRenderEventFunc(IntPtr context);
         [DllImport(WebRTC.Lib)]
         public static extern void ProcessAudio(float[] data, int size);
+        [DllImport(WebRTC.Lib)]
+        public static extern IntPtr StatsReportGetList(IntPtr report, ref int length);
+        [DllImport(WebRTC.Lib)]
+        public static extern void StatsGetJson(IntPtr stats, [MarshalAs(UnmanagedType.LPStr), Out] StringBuilder buf);
     }
 
     internal static class VideoEncoderMethods

@@ -1,7 +1,6 @@
 #include "pch.h"
 #include "WebRTCPlugin.h"
 #include "Context.h"
-#include "GraphicsDevice/GraphicsDevice.h"
 #include "DummyVideoEncoder.h"
 #include "VideoCaptureTrackSource.h"
 #include "MediaStreamObserver.h"
@@ -169,6 +168,7 @@ namespace WebRTC
         m_mapMediaStream.clear();
         m_mapMediaStreamObserver.clear();
         m_mapSetSessionDescriptionObserver.clear();
+        m_mapStatsCollectorCallback.clear();
         m_mapVideoEncoderParameter.clear();
         m_mapDataChannels.clear();
 
@@ -313,4 +313,15 @@ namespace WebRTC
     {
         return m_mapSetSessionDescriptionObserver[connection];
     }
+
+    void Context::AddStatsCallback(const webrtc::PeerConnectionInterface* connection, PeerConnectionStatsCollectorCallback* callback)
+    {
+        m_mapStatsCollectorCallback[connection] = callback;
+    }
+
+    PeerConnectionStatsCollectorCallback* Context::GetStatsCallback(const webrtc::PeerConnectionInterface* connection)
+    {
+        return m_mapStatsCollectorCallback[connection];
+    }
+
 }

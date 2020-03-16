@@ -73,6 +73,7 @@
     </ClCompile>
     <ClCompile Include="MediaStreamObserver.cpp" />
     <ClCompile Include="SetSessionDescriptionObserver.cpp" />
+    <ClCompile Include="PeerConnectionStatsCollectorCallback.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Context.h" />
@@ -174,6 +175,7 @@
     </ClInclude>
     <ClInclude Include="MediaStreamObserver.h" />
     <ClInclude Include="SetSessionDescriptionObserver.h" />
+    <ClInclude Include="PeerConnectionStatsCollectorCallback.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="GraphicsDevice">

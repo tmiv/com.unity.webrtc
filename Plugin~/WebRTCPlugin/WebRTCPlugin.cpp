@@ -1,8 +1,9 @@
 #include "pch.h"
 #include "WebRTCPlugin.h"
+#include "SetSessionDescriptionObserver.h"
+#include "PeerConnectionStatsCollectorCallback.h"
 #include "PeerConnectionObject.h"
 #include "MediaStreamObserver.h"
-#include "SetSessionDescriptionObserver.h"
 #include "Context.h"
 #include "Codec/EncoderFactory.h"
 
@@ -214,8 +215,8 @@ extern "C"
     PeerConnectionObject* _ContextCreatePeerConnection(Context* context, const webrtc::PeerConnectionInterface::RTCConfiguration& config)
     {
         const auto obj = context->CreatePeerConnection(config);
-        const auto observer = WebRTC::SetSessionDescriptionObserver::Create(obj);
-        context->AddObserver(obj->connection, observer);
+        context->AddObserver(obj->connection, SetSessionDescriptionObserver::Create(obj));
+        context->AddStatsCallback(obj->connection, PeerConnectionStatsCollectorCallback::Create(obj));
         return obj;
     }
 
@@ -291,9 +292,41 @@ extern "C"
         obj->SetLocalDescription(*desc, context->GetObserver(obj->connection));
     }
 
-    UNITY_INTERFACE_EXPORT void PeerConnectionCollectStats(PeerConnectionObject* obj)
+    UNITY_INTERFACE_EXPORT void PeerConnectionGetStats(Context* context, PeerConnectionObject* obj)
     {
-        obj->CollectStats();
+        obj->connection->GetStats(context->GetStatsCallback(obj->connection));
+    }
+
+    UNITY_INTERFACE_EXPORT const webrtc::RTCStats** StatsReportGetList(const webrtc::RTCStatsReport* report, int* length)
+    {
+        *length = report->size();
+        const auto buf = CoTaskMemAlloc(sizeof(webrtc::RTCStats*) * report->size());
+        const auto ret = static_cast<const webrtc::RTCStats**>(buf);
+        int i = 0;
+        for (auto it = report->begin(); it != report->end(); ++it, i++)
+        {
+            ret[i] = &*it;
+        }
+        return ret;
+    }
+
+    UNITY_INTERFACE_EXPORT void StatsGetJson(const webrtc::RTCStats* stats, char* buf)
+    {
+        std::string str = stats->ToJson();
+        str.copy(buf, str.size());
+    }
+
+    UNITY_INTERFACE_EXPORT const webrtc::RTCStatsMemberInterface** StatsGetMembers(const webrtc::RTCStats* stats, int* length)
+    {
+        auto vec = stats->Members();
+        *length = vec.size();
+        const auto buf = CoTaskMemAlloc(sizeof(webrtc::RTCStatsMemberInterface*) * vec.size());
+        const auto ret = static_cast<const webrtc::RTCStatsMemberInterface**>(buf);
+        for (uint32_t i = 0; i < vec.size(); i++)
+        {
+            ret[i] = vec[i];
+        }
+        return ret;
     }
 
     UNITY_INTERFACE_EXPORT bool PeerConnectionGetLocalDescription(PeerConnectionObject* obj, RTCSessionDescription* desc)
@@ -371,9 +404,9 @@ extern "C"
         obj->RegisterIceCandidate(callback);
     }
 
-    UNITY_INTERFACE_EXPORT void PeerConnectionRegisterCallbackCollectStats(PeerConnectionObject* obj, DelegateCollectStats onGetStats)
+    UNITY_INTERFACE_EXPORT void PeerConnectionRegisterCallbackCollectStats(Context* context, PeerConnectionObject* obj, DelegateCollectStats onGetStats)
     {
-        obj->RegisterCallbackCollectStats(onGetStats);
+        context->GetStatsCallback(obj->connection)->SetCallback(onGetStats);
     }
 
     UNITY_INTERFACE_EXPORT void PeerConnectionRegisterCallbackCreateSD(PeerConnectionObject* obj, DelegateCreateSDSuccess onSuccess, DelegateCreateSDFailure onFailure)
