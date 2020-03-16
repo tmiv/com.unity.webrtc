@@ -67,29 +67,103 @@ namespace Unity.WebRTC
         track
     }*/
 
+    internal static class IntPtrExtension
+    {
+        internal static string AsString(this IntPtr ptr)
+        {
+            return Marshal.PtrToStringAnsi(ptr);
+        }
+    }
+
+    internal class RTCStatsMember
+    {
+        private IntPtr self;
+        internal RTCStatsMember(IntPtr ptr)
+        {
+            self = ptr;
+        }
+
+        internal string GetName()
+        {
+            return NativeMethods.StatsMemberGetName(self).AsString();
+        }
+
+        internal string AsString()
+        {
+            return NativeMethods.StatsMemberGetString(self).AsString();
+        }
+
+        internal ulong AsUnsignedLong()
+        {
+            return NativeMethods.StatsMemberGetUnsignedLong(self);
+        }
+
+    }
+
     public class RTCStats
     {
         private IntPtr self;
-        private string rawData;
+        private Dictionary<string, RTCStatsMember> m_members;
 
-        public string type;
-        public string id;
-        public ulong timestamp;
+        public string Type
+        {
+            get { return NativeMethods.StatsGetType(self).AsString(); }
+        }
+
+        public string Id
+        {
+            get  { return NativeMethods.StatsGetId(self).AsString(); }
+        }
+
+        public long Timestamp
+        {
+            get { return NativeMethods.StatsGetTimestamp(self); }
+        }
+
+        public object this[string key]
+        {
+            get
+            {
+                RTCStatsMember value = null;
+                if (m_members.TryGetValue(key, out value))
+                {
+                    return value;
+                }
+                throw new KeyNotFoundException(key);
+            }
+        }
 
         internal RTCStats(IntPtr ptr)
         {
             self = ptr;
-
-            StringBuilder buf = new StringBuilder(255);
-            NativeMethods.StatsGetJson(self, buf);
-            rawData = buf.ToString();
-
-            JsonUtility.FromJsonOverwrite(rawData, this);
+            int length = 0;
+            RTCStatsMember[] array = GetMembers();
+            m_members = new Dictionary<string, RTCStatsMember>();
+            foreach (var member in array)
+            {
+                m_members.Add(member.GetName(), member);
+            }
         }
 
-        public string GetJson()
+        internal RTCStatsMember[] GetMembers()
         {
-            return rawData;
+            int length = 0;
+            IntPtr buf = NativeMethods.StatsGetMembers(self, ref length);
+            var array = new IntPtr[length];
+            Marshal.Copy(buf, array, 0, length);
+            Marshal.FreeCoTaskMem(buf);
+
+            RTCStatsMember[] members = new RTCStatsMember[length];
+            for (int i = 0; i < length; i++)
+            {
+                members[i] = new RTCStatsMember(array[i]);
+            }
+            return members;
+        }
+
+        public string ToJson()
+        {
+            return NativeMethods.StatsGetJson(self).AsString();
         }
     }
 
@@ -136,20 +210,6 @@ namespace Unity.WebRTC
                 this.Done();
             };
         }
-
-        /*
-        RTCStatsReport[] Parse(string json)
-        {
-            string prefix = "{\"list\":";
-            string suffix = "}";
-
-            int size = json.Length + prefix.Length + suffix.Length;
-            StringBuilder sb = new StringBuilder(size);
-            sb.Append(prefix).Append(json).Append(suffix);
-            Debug.Log(sb.ToString());
-            return JsonUtility.FromJson<RTCStatsReportList>(sb.ToString()).list;
-        }
-        */
     }
 
 

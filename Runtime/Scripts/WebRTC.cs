@@ -567,7 +567,23 @@ namespace Unity.WebRTC
         [DllImport(WebRTC.Lib)]
         public static extern IntPtr StatsReportGetList(IntPtr report, ref int length);
         [DllImport(WebRTC.Lib)]
-        public static extern void StatsGetJson(IntPtr stats, [MarshalAs(UnmanagedType.LPStr), Out] StringBuilder buf);
+        public static extern IntPtr StatsGetJson(IntPtr stats);
+
+        [DllImport(WebRTC.Lib)]
+        public static extern IntPtr StatsGetId(IntPtr stats);
+        [DllImport(WebRTC.Lib)]
+        public static extern IntPtr StatsGetType(IntPtr stats);
+        [DllImport(WebRTC.Lib)]
+        public static extern long StatsGetTimestamp(IntPtr stats);
+        [DllImport(WebRTC.Lib)]
+        public static extern IntPtr StatsGetMembers(IntPtr stats, ref int length);
+        [DllImport(WebRTC.Lib)]
+        public static extern IntPtr StatsMemberGetName(IntPtr member);
+        [DllImport(WebRTC.Lib)]
+        public static extern ulong StatsMemberGetUnsignedLong(IntPtr member);
+        [DllImport(WebRTC.Lib)]
+        public static extern IntPtr StatsMemberGetString(IntPtr member);
+
     }
 
     internal static class VideoEncoderMethods

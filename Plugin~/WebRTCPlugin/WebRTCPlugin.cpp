@@ -33,7 +33,7 @@ namespace WebRTC
     }
 }
 
-template<class T>
+template<typename T>
 T** ConvertArray(std::vector<rtc::scoped_refptr<T>> vec, int* length)
 {
 #pragma warning(suppress: 4267)
@@ -45,6 +45,31 @@ T** ConvertArray(std::vector<rtc::scoped_refptr<T>> vec, int* length)
         ret[i] = vec[i].get();
     }
     return ret;
+}
+
+template<typename T>
+T* ConvertArray2(std::vector<T> vec, int* length)
+{
+#pragma warning(suppress: 4267)
+    *length = vec.size();
+    const auto buf = CoTaskMemAlloc(sizeof(T*) * vec.size());
+    const auto ret = static_cast<T*>(buf);
+    for (uint32_t i = 0; i < vec.size(); i++)
+    {
+        ret[i] = vec[i];
+    }
+    return ret;
+
+}
+
+
+const char* ConvertString(const std::string& str)
+{
+    auto label = static_cast<char*>(CoTaskMemAlloc(str.size() + sizeof(char)));
+    str.copy(label, str.size());
+    label[str.size()] = '\0';
+    return label;
+
 }
 
 
@@ -310,10 +335,24 @@ extern "C"
         return ret;
     }
 
-    UNITY_INTERFACE_EXPORT void StatsGetJson(const webrtc::RTCStats* stats, char* buf)
+    UNITY_INTERFACE_EXPORT const char* StatsGetJson(const webrtc::RTCStats* stats)
     {
-        std::string str = stats->ToJson();
-        str.copy(buf, str.size());
+        return ConvertString(stats->ToJson());
+    }
+
+    UNITY_INTERFACE_EXPORT int64_t StatsGetTimestamp(const webrtc::RTCStats* stats)
+    {
+        return stats->timestamp_us();
+    }
+
+    UNITY_INTERFACE_EXPORT const char* StatsGetId(const webrtc::RTCStats* stats)
+    {
+        return ConvertString(stats->id());
+    }
+
+    UNITY_INTERFACE_EXPORT const char* StatsGetType(const webrtc::RTCStats* stats)
+    {
+        return ConvertString(stats->type());
     }
 
     UNITY_INTERFACE_EXPORT const webrtc::RTCStatsMemberInterface** StatsGetMembers(const webrtc::RTCStats* stats, int* length)
@@ -328,6 +367,65 @@ extern "C"
         }
         return ret;
     }
+
+    UNITY_INTERFACE_EXPORT const char* StatsMemberGetName(const webrtc::RTCStatsMemberInterface* member)
+    {
+        return ConvertString(std::string(member->name()));
+    }
+
+    UNITY_INTERFACE_EXPORT bool StatsMemberGetBool(const webrtc::RTCStatsMemberInterface* member)
+    {
+        return *member->cast_to<webrtc::RTCStatsMember<bool>>();
+    }
+
+    UNITY_INTERFACE_EXPORT int32_t StatsMemberGetInt(const webrtc::RTCStatsMemberInterface* member)
+    {
+        return *member->cast_to<webrtc::RTCStatsMember<int32_t>>();
+    }
+
+    UNITY_INTERFACE_EXPORT uint32_t StatsMemberGetUnsignedInt(const webrtc::RTCStatsMemberInterface* member)
+    {
+        return *member->cast_to<webrtc::RTCStatsMember<uint32_t>>();
+    }
+
+    UNITY_INTERFACE_EXPORT int64_t StatsMemberGetLong(const webrtc::RTCStatsMemberInterface* member)
+    {
+        return *member->cast_to<webrtc::RTCStatsMember<uint64_t>>();
+    }
+
+    UNITY_INTERFACE_EXPORT uint64_t StatsMemberGetUnsignedLong(const webrtc::RTCStatsMemberInterface* member)
+    {
+        return *member->cast_to<webrtc::RTCStatsMember<uint64_t>>();
+    }
+
+    UNITY_INTERFACE_EXPORT double StatsMemberGetDouble(const webrtc::RTCStatsMemberInterface* member)
+    {
+        return *member->cast_to<webrtc::RTCStatsMember<double>>();
+    }
+
+    UNITY_INTERFACE_EXPORT const char* StatsMemberGetString(const webrtc::RTCStatsMemberInterface* member)
+    {
+        return ConvertString(member->ValueToString());
+    }
+
+    UNITY_INTERFACE_EXPORT bool* StatsMemberGetBoolArray(const webrtc::RTCStatsMemberInterface* member, int* length)
+    {
+        return ConvertArray2(*member->cast_to<webrtc::RTCStatsMember<std::vector<bool>>>(), length);
+    }
+
+    UNITY_INTERFACE_EXPORT webrtc::RTCStatsMemberInterface::Type StatsMemberGetType(const webrtc::RTCStatsMemberInterface* member)
+    {
+        return member->type();
+    }
+
+
+    /*
+    UNITY_INTERFACE_EXPORT unsigned long StatsMemberGetUnsignedLong(const webrtc::RTCStatsMemberInterface* member)
+    {
+        return member->cast_to<unsigned long>();
+    }
+    */
+
 
     UNITY_INTERFACE_EXPORT bool PeerConnectionGetLocalDescription(PeerConnectionObject* obj, RTCSessionDescription* desc)
     {
@@ -488,13 +586,9 @@ extern "C"
         return dataChannelObj->GetID();
     }
 
-    UNITY_INTERFACE_EXPORT char* DataChannelGetLabel(DataChannelObject* dataChannelObj)
+    UNITY_INTERFACE_EXPORT const char* DataChannelGetLabel(const DataChannelObject* dataChannelObj)
     {
-        std::string tmp = dataChannelObj->GetLabel();
-        auto label = static_cast<char*>(CoTaskMemAlloc(tmp.size() + sizeof(char)));
-        tmp.copy(label, tmp.size());
-        label[tmp.size()] = '\0';
-        return label;
+        return ConvertString(dataChannelObj->GetLabel());
     }
 
     UNITY_INTERFACE_EXPORT void DataChannelSend(DataChannelObject* dataChannelObj, const char* msg)

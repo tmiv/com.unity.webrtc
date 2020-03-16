@@ -216,6 +216,13 @@ namespace Unity.WebRTC.RuntimeTest
             Assert.NotNull(op.Value);
             Assert.Greater(op.Value.GetEnumerator().Count(), 0);
 
+            RTCStats stat = op.Value.GetEnumerator().First();
+            Assert.NotNull(stat.Id);
+            Assert.NotNull(stat.Type);
+            Assert.NotZero(stat.Timestamp);
+            Assert.NotNull(stat.ToJson());
+
+
             peer.Close();
             peer.Dispose();
         }
