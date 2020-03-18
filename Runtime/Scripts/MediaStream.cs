@@ -124,25 +124,25 @@ namespace Unity.WebRTC
         [AOT.MonoPInvokeCallback(typeof(DelegateNativeMediaStreamOnAddTrack))]
         static void MediaStreamOnAddTrack(IntPtr ptr, IntPtr track)
         {
-            WebRTC.SyncContext.Post(_ =>
+            WebRTC.Sync(() =>
             {
                 if (WebRTC.Table[ptr] is MediaStream stream)
                 {
                     stream.OnAddTrack(new MediaStreamTrackEvent(track));
                 }
-            }, null);
+            });
         }
 
         [AOT.MonoPInvokeCallback(typeof(DelegateNativeMediaStreamOnRemoveTrack))]
         static void MediaStreamOnRemoveTrack(IntPtr ptr, IntPtr track)
         {
-            WebRTC.SyncContext.Post(_ =>
+            WebRTC.Sync(() =>
             {
                 if (WebRTC.Table[ptr] is MediaStream stream)
                 {
                     stream.OnRemoveTrack(new MediaStreamTrackEvent(track));
                 }
-            }, null);
+            });
         }
     }
     internal class Cleaner : MonoBehaviour
