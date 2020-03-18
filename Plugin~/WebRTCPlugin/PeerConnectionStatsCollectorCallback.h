@@ -11,13 +11,15 @@ namespace WebRTC
         PeerConnectionStatsCollectorCallback(const PeerConnectionStatsCollectorCallback&) = delete;
         PeerConnectionStatsCollectorCallback& operator=(const PeerConnectionStatsCollectorCallback&) = delete;
         static PeerConnectionStatsCollectorCallback* Create(PeerConnectionObject* connection);
-        void SetCallback(DelegateCollectStats callback) { m_collectStatsCallback = callback; }
         void OnStatsDelivered(const rtc::scoped_refptr<const webrtc::RTCStatsReport>& report) override;
+
+        static void RegisterOnGetStats(DelegateCollectStats callback) { s_collectStatsCallback = callback; }
     protected:
         explicit PeerConnectionStatsCollectorCallback(PeerConnectionObject* owner) { m_owner = owner; }
-        ~PeerConnectionStatsCollectorCallback() override = default;
+        ~PeerConnectionStatsCollectorCallback() override { ::OutputDebugStringA("~PeerConnectionStatsCollectorCallback\n"); };
     private:
-        DelegateCollectStats m_collectStatsCallback = nullptr;
         PeerConnectionObject* m_owner = nullptr;
+
+        static DelegateCollectStats s_collectStatsCallback;
     };
 }

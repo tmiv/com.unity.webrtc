@@ -241,7 +241,6 @@ extern "C"
     {
         const auto obj = context->CreatePeerConnection(config);
         context->AddObserver(obj->connection, SetSessionDescriptionObserver::Create(obj));
-        context->AddStatsCallback(obj->connection, PeerConnectionStatsCollectorCallback::Create(obj));
         return obj;
     }
 
@@ -319,7 +318,7 @@ extern "C"
 
     UNITY_INTERFACE_EXPORT void PeerConnectionGetStats(Context* context, PeerConnectionObject* obj)
     {
-        obj->connection->GetStats(context->GetStatsCallback(obj->connection));
+        obj->connection->GetStats(PeerConnectionStatsCollectorCallback::Create(obj));
     }
 
     UNITY_INTERFACE_EXPORT const webrtc::RTCStats** StatsReportGetList(const webrtc::RTCStatsReport* report, int* length)
@@ -518,9 +517,9 @@ extern "C"
         obj->RegisterIceCandidate(callback);
     }
 
-    UNITY_INTERFACE_EXPORT void PeerConnectionRegisterCallbackCollectStats(Context* context, PeerConnectionObject* obj, DelegateCollectStats onGetStats)
+    UNITY_INTERFACE_EXPORT void PeerConnectionRegisterCallbackCollectStats(Context* context, DelegateCollectStats onGetStats)
     {
-        context->GetStatsCallback(obj->connection)->SetCallback(onGetStats);
+        PeerConnectionStatsCollectorCallback::RegisterOnGetStats(onGetStats);
     }
 
     UNITY_INTERFACE_EXPORT void PeerConnectionRegisterCallbackCreateSD(PeerConnectionObject* obj, DelegateCreateSDSuccess onSuccess, DelegateCreateSDFailure onFailure)

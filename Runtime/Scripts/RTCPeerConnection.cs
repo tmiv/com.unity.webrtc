@@ -282,7 +282,7 @@ namespace Unity.WebRTC
         void InitCallback()
         {
             NativeMethods.PeerConnectionRegisterCallbackCreateSD(self, OnSuccessCreateSessionDesc, OnFailureCreateSessionDesc);
-            WebRTC.Context.PeerConnectionRegisterCallbackCollectStats(self, OnStatsDeliveredCallback);
+            WebRTC.Context.PeerConnectionRegisterCallbackCollectStats(OnStatsDeliveredCallback);
         }
 
         public void Close()

@@ -1,10 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text;
 
 namespace Unity.WebRTC
 {
@@ -82,6 +79,7 @@ namespace Unity.WebRTC
         static RTCStatsTypeUtils()
         {
             s_table = new Dictionary<string, RTCStatsType>();
+            s_list = new string[Enum.GetValues(typeof(RTCStatsType)).Length];
             foreach (RTCStatsType value in Enum.GetValues(typeof(RTCStatsType)))
             {
                 Type type = value.GetType();
@@ -90,8 +88,9 @@ namespace Unity.WebRTC
                 StringValueAttribute[] attribute = fieldInfo.GetCustomAttributes(typeof(StringValueAttribute), false) as StringValueAttribute[];
 
                 // Return the first if there was a match.
-                string str = attribute.Length > 0 ? attribute[0].StringValue : null;
+                string str = attribute != null && attribute.Length > 0 ? attribute[0].StringValue : null;
                 s_table.Add(str, value);
+                s_list[(int)value] = str;
             }
         }
     }
@@ -147,11 +146,17 @@ namespace Unity.WebRTC
             return array;
         }
 
-        internal static string[] AsStringArray(this IntPtr ptr, int length)
+        internal static IntPtr[] AsIntPtrArray(this IntPtr ptr, int length)
         {
             IntPtr[] array = new IntPtr[length];
             Marshal.Copy(ptr, array, 0, length);
             Marshal.FreeCoTaskMem(ptr);
+            return array;
+        }
+
+        internal static string[] AsStringArray(this IntPtr ptr, int length)
+        {
+            IntPtr[] array = ptr.AsIntPtrArray(length);
             return Array.ConvertAll(array, AsString);
         }
     }
@@ -217,7 +222,7 @@ namespace Unity.WebRTC
     public class RTCStats
     {
         private IntPtr self;
-        private Dictionary<string, RTCStatsMember> m_members;
+        internal Dictionary<string, RTCStatsMember> m_members;
 
         public RTCStatsType Type
         {
@@ -295,11 +300,7 @@ namespace Unity.WebRTC
         {
             self = ptr;
             int length = 0;
-            IntPtr buf = NativeMethods.StatsReportGetList(self, ref length);
-
-            var array = new IntPtr[length];
-            Marshal.Copy(buf, array, 0, length);
-            Marshal.FreeCoTaskMem(buf);
+            IntPtr[] array = NativeMethods.StatsReportGetList(self, ref length).AsIntPtrArray(length);
 
             m_dictStats = new Dictionary<RTCStatsType, RTCStats>();
             for (int i = 0; i < length; i++)
@@ -325,6 +326,18 @@ namespace Unity.WebRTC
         IEnumerator IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
+        }
+    }
+
+    public class RTCPeerConnectionStats : RTCStats
+    {
+        public ulong dataChannelsOpened { get { return (ulong) base["dataChannelsOpened"]; } }
+        public ulong dataChannelsClosed { get { return (ulong) base["dataChannelsClosed"]; } }
+        public ulong dataChannelsRequested { get { return (ulong) base["dataChannelsRequested"]; } }
+        public ulong dataChannelsAccepted { get { return (ulong) base["dataChannelsAccepted"]; } }
+
+        internal RTCPeerConnectionStats(IntPtr ptr) : base(ptr)
+        {
         }
     }
 }

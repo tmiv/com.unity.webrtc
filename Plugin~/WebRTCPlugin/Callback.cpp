@@ -77,7 +77,8 @@ static void UNITY_INTERFACE_API OnRenderEvent(int eventID, void* data)
             }
             s_device = GraphicsDevice::GetInstance().GetDevice();
             const VideoEncoderParameter* param = s_context->GetEncoderParameter(track);
-            m_mapEncoder[track] = EncoderFactory::GetInstance().Init(param->width, param->height, s_device, param->type);
+            const UnityEncoderType encoderType = s_context->GetEncoderType();
+            m_mapEncoder[track] = EncoderFactory::GetInstance().Init(param->width, param->height, s_device, encoderType);
             s_context->InitializeEncoder(m_mapEncoder[track].get(), track);
             return;
         }

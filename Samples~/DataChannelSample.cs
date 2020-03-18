@@ -278,7 +278,6 @@ public class DataChannelSample : MonoBehaviour
 
     IEnumerator LoopGetStats()
     {
-        /*
         while (true)
         {
             yield return new WaitForSeconds(1f);
@@ -303,8 +302,6 @@ public class DataChannelSample : MonoBehaviour
                 Debug.Log(stat.Type.ToString());
             }
         }
-        */
-        yield break;
     }
 
     void OnAddIceCandidateSuccess(RTCPeerConnection pc)

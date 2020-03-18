@@ -467,7 +467,7 @@ namespace Unity.WebRTC
         [DllImport(WebRTC.Lib)]
         public static extern void PeerConnectionRegisterCallbackCreateSD(IntPtr ptr, DelegateCreateSDSuccess onSuccess, DelegateCreateSDFailure onFailure);
         [DllImport(WebRTC.Lib)]
-        public static extern void PeerConnectionRegisterCallbackCollectStats(IntPtr context, IntPtr ptr, DelegateCollectStats onGetStats);
+        public static extern void PeerConnectionRegisterCallbackCollectStats(IntPtr context, DelegateCollectStats onGetStats);
         [DllImport(WebRTC.Lib)]
         public static extern void PeerConnectionRegisterOnSetSessionDescSuccess(IntPtr context, IntPtr connection, DelegateNativePeerConnectionSetSessionDescSuccess onSuccess);
         [DllImport(WebRTC.Lib)]

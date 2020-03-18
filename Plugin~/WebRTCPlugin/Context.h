@@ -67,8 +67,6 @@ namespace WebRTC
         void RemoveObserver(const webrtc::PeerConnectionInterface* connection);
         SetSessionDescriptionObserver* GetObserver(webrtc::PeerConnectionInterface* connection);
         void DeletePeerConnection(PeerConnectionObject* obj) { m_mapClients.erase(obj); }
-        void AddStatsCallback(const webrtc::PeerConnectionInterface* connection, PeerConnectionStatsCollectorCallback* callback);
-        PeerConnectionStatsCollectorCallback* GetStatsCallback(const webrtc::PeerConnectionInterface* connection);
 
         // DataChannel
         DataChannelObject* CreateDataChannel(PeerConnectionObject* obj, const char* label, const RTCDataChannelInit& options);

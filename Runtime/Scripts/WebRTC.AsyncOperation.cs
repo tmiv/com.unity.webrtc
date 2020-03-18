@@ -19,7 +19,6 @@ namespace Unity.WebRTC
             {
                 if (IsDone)
                 {
-                    Debug.Log("IsDone");
                     return false;
                 }
                 return true;

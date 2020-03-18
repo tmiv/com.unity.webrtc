@@ -313,15 +313,4 @@ namespace WebRTC
     {
         return m_mapSetSessionDescriptionObserver[connection];
     }
-
-    void Context::AddStatsCallback(const webrtc::PeerConnectionInterface* connection, PeerConnectionStatsCollectorCallback* callback)
-    {
-        m_mapStatsCollectorCallback[connection] = callback;
-    }
-
-    PeerConnectionStatsCollectorCallback* Context::GetStatsCallback(const webrtc::PeerConnectionInterface* connection)
-    {
-        return m_mapStatsCollectorCallback[connection];
-    }
-
 }
