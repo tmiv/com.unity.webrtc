@@ -357,15 +357,7 @@ extern "C"
 
     UNITY_INTERFACE_EXPORT const webrtc::RTCStatsMemberInterface** StatsGetMembers(const webrtc::RTCStats* stats, int* length)
     {
-        auto vec = stats->Members();
-        *length = vec.size();
-        const auto buf = CoTaskMemAlloc(sizeof(webrtc::RTCStatsMemberInterface*) * vec.size());
-        const auto ret = static_cast<const webrtc::RTCStatsMemberInterface**>(buf);
-        for (uint32_t i = 0; i < vec.size(); i++)
-        {
-            ret[i] = vec[i];
-        }
-        return ret;
+        return ConvertArray2(stats->Members(), length);
     }
 
     UNITY_INTERFACE_EXPORT const char* StatsMemberGetName(const webrtc::RTCStatsMemberInterface* member)
@@ -413,19 +405,43 @@ extern "C"
         return ConvertArray2(*member->cast_to<webrtc::RTCStatsMember<std::vector<bool>>>(), length);
     }
 
+    UNITY_INTERFACE_EXPORT int32_t* StatsMemberGetIntArray(const webrtc::RTCStatsMemberInterface* member, int* length)
+    {
+        return ConvertArray2(*member->cast_to<webrtc::RTCStatsMember<std::vector<int>>>(), length);
+    }
+
+    UNITY_INTERFACE_EXPORT uint32_t* StatsMemberGetUnsignedIntArray(const webrtc::RTCStatsMemberInterface* member, int* length)
+    {
+        return ConvertArray2(*member->cast_to<webrtc::RTCStatsMember<std::vector<uint32_t>>>(), length);
+    }
+
+    UNITY_INTERFACE_EXPORT int64_t* StatsMemberGetLongArray(const webrtc::RTCStatsMemberInterface* member, int* length)
+    {
+        return ConvertArray2(*member->cast_to<webrtc::RTCStatsMember<std::vector<int64_t>>>(), length);
+    }
+
+    UNITY_INTERFACE_EXPORT uint64_t* StatsMemberGetUnsignedLongArray(const webrtc::RTCStatsMemberInterface* member, int* length)
+    {
+        return ConvertArray2(*member->cast_to<webrtc::RTCStatsMember<std::vector<uint64_t>>>(), length);
+    }
+
+    UNITY_INTERFACE_EXPORT double* StatsMemberGetDoubleArray(const webrtc::RTCStatsMemberInterface* member, int* length)
+    {
+        return ConvertArray2(*member->cast_to<webrtc::RTCStatsMember<std::vector<double>>>(), length);
+    }
+
+    UNITY_INTERFACE_EXPORT const char** StatsMemberGetStringArray(const webrtc::RTCStatsMemberInterface* member, int* length)
+    {
+        std::vector<std::string> vec = *member->cast_to<webrtc::RTCStatsMember<std::vector<std::string>>>();
+        std::vector<const char*>  vc;
+        std::transform(vec.begin(), vec.end(), std::back_inserter(vc), ConvertString);
+        return ConvertArray2(vc, length);
+    }
+
     UNITY_INTERFACE_EXPORT webrtc::RTCStatsMemberInterface::Type StatsMemberGetType(const webrtc::RTCStatsMemberInterface* member)
     {
         return member->type();
     }
-
-
-    /*
-    UNITY_INTERFACE_EXPORT unsigned long StatsMemberGetUnsignedLong(const webrtc::RTCStatsMemberInterface* member)
-    {
-        return member->cast_to<unsigned long>();
-    }
-    */
-
 
     UNITY_INTERFACE_EXPORT bool PeerConnectionGetLocalDescription(PeerConnectionObject* obj, RTCSessionDescription* desc)
     {

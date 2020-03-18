@@ -224,6 +224,25 @@ namespace Unity.WebRTC
         }
     }
 
+    internal enum StatsMemberType
+    {
+        Bool,    // bool
+        Int32,   // int32_t
+        Uint32,  // uint32_t
+        Int64,   // int64_t
+        Uint64,  // uint64_t
+        Double,  // double
+        String,  // std::string
+
+        SequenceBool,    // std::vector<bool>
+        SequenceInt32,   // std::vector<int32_t>
+        SequenceUint32,  // std::vector<uint32_t>
+        SequenceInt64,   // std::vector<int64_t>
+        SequenceUint64,  // std::vector<uint64_t>
+        SequenceDouble,  // std::vector<double>
+        SequenceString,  // std::vector<std::string>
+    }
+
     public static class WebRTC
     {
 #if UNITY_EDITOR_OSX
@@ -568,7 +587,6 @@ namespace Unity.WebRTC
         public static extern IntPtr StatsReportGetList(IntPtr report, ref int length);
         [DllImport(WebRTC.Lib)]
         public static extern IntPtr StatsGetJson(IntPtr stats);
-
         [DllImport(WebRTC.Lib)]
         public static extern IntPtr StatsGetId(IntPtr stats);
         [DllImport(WebRTC.Lib)]
@@ -580,9 +598,36 @@ namespace Unity.WebRTC
         [DllImport(WebRTC.Lib)]
         public static extern IntPtr StatsMemberGetName(IntPtr member);
         [DllImport(WebRTC.Lib)]
+        public static extern StatsMemberType StatsMemberGetType(IntPtr member);
+        [DllImport(WebRTC.Lib)]
+        [return: MarshalAs(UnmanagedType.U1)]
+        public static extern bool StatsMemberGetBool(IntPtr member);
+        [DllImport(WebRTC.Lib)]
+        public static extern int StatsMemberGetInt(IntPtr member);
+        [DllImport(WebRTC.Lib)]
+        public static extern uint StatsMemberGetUnsignedInt(IntPtr member);
+        [DllImport(WebRTC.Lib)]
+        public static extern long StatsMemberGetLong(IntPtr member);
+        [DllImport(WebRTC.Lib)]
         public static extern ulong StatsMemberGetUnsignedLong(IntPtr member);
         [DllImport(WebRTC.Lib)]
+        public static extern double StatsMemberGetDouble(IntPtr member);
+        [DllImport(WebRTC.Lib)]
         public static extern IntPtr StatsMemberGetString(IntPtr member);
+        [DllImport(WebRTC.Lib)]
+        public static extern IntPtr StatsMemberGetBoolArray(IntPtr member, ref int length);
+        [DllImport(WebRTC.Lib)]
+        public static extern IntPtr StatsMemberGetIntArray(IntPtr member, ref int length);
+        [DllImport(WebRTC.Lib)]
+        public static extern IntPtr StatsMemberGetUnsignedIntArray(IntPtr member, ref int length);
+        [DllImport(WebRTC.Lib)]
+        public static extern IntPtr StatsMemberGetLongArray(IntPtr member, ref int length);
+        [DllImport(WebRTC.Lib)]
+        public static extern IntPtr StatsMemberGetUnsignedLongArray(IntPtr member, ref int length);
+        [DllImport(WebRTC.Lib)]
+        public static extern IntPtr StatsMemberGetDoubleArray(IntPtr member, ref int length);
+        [DllImport(WebRTC.Lib)]
+        public static extern IntPtr StatsMemberGetStringArray(IntPtr member, ref int length);
 
     }
 
