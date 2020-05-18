@@ -23,14 +23,31 @@ namespace Unity.WebRTC
                 }
                 else
                 {
-                    return true;  
-                }   
+                    return true;
+                }
             }
         }
 
         internal void Done()
         {
             IsDone = true;
+        }
+    }
+
+    public class RTCStatsReportAsyncOperation : AsyncOperationBase
+    {
+        public RTCStatsReport Value { get; private set; }
+
+        internal RTCStatsReportAsyncOperation(RTCPeerConnection connection)
+        {
+            WebRTC.Context.PeerConnectionGetStats(connection.self);
+
+            connection.OnStatsDelivered = ptr =>
+            {
+                Value = new RTCStatsReport(ptr);
+                IsError = false;
+                this.Done();
+            };
         }
     }
 
