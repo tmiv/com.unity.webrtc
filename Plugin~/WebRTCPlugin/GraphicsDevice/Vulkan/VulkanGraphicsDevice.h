@@ -1,8 +1,8 @@
 #pragma once
 
-#include "GraphicsDevice/IGraphicsDevice.h"
 #include "WebRTCConstants.h"
-#include "Cuda/CudaContext.h"
+#include "GraphicsDevice/Cuda/CudaContext.h"
+#include "GraphicsDevice/IGraphicsDevice.h"
 
 namespace unity
 {
@@ -21,13 +21,18 @@ public:
     virtual bool InitV() override;
     virtual void ShutdownV() override;
     inline virtual void* GetEncodeDevicePtrV() override;
-    virtual ITexture2D* CreateDefaultTextureV(const uint32_t w, const uint32_t h) override;
-    virtual ITexture2D* CreateCPUReadTextureV(uint32_t width, uint32_t height) override;
+    virtual ITexture2D* CreateDefaultTextureV(const uint32_t w, const uint32_t h, UnityRenderingExtTextureFormat textureFormat) override;
+    virtual ITexture2D* CreateCPUReadTextureV(uint32_t width, uint32_t height, UnityRenderingExtTextureFormat textureFormat) override;
+
+    std::unique_ptr<UnityVulkanImage> AccessTexture(void* ptr) const;
 
     virtual bool CopyResourceV(ITexture2D* dest, ITexture2D* src) override;
     virtual bool CopyResourceFromNativeV(ITexture2D* dest, void* nativeTexturePtr) override;
     inline virtual GraphicsDeviceType GetDeviceType() const override;
     virtual rtc::scoped_refptr<webrtc::I420Buffer> ConvertRGBToI420(ITexture2D* tex) override;
+
+    virtual bool IsCudaSupport() override { return m_isCudaSupport; }
+    virtual CUcontext GetCuContext() override { return m_cudaContext.GetContext(); }
 private:
 
     VkResult CreateCommandPool();
@@ -41,9 +46,9 @@ private:
 
     CudaContext m_cudaContext;
     uint32_t m_queueFamilyIndex;
+    bool m_isCudaSupport;
 
     const VkAllocationCallbacks* m_allocator = nullptr;
-
 };
 
 //---------------------------------------------------------------------------------------------------------------------

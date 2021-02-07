@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "DummyVideoEncoder.h"
-#include "NvVideoCapturer.h"
+#include "modules/video_coding/utility/simulcast_rate_allocator.h"
 
 namespace unity
 {
@@ -8,6 +8,9 @@ namespace webrtc
 {
 
     DummyVideoEncoder::DummyVideoEncoder(IVideoEncoderObserver* observer)
+        : m_encode_fps(1000, 1000)
+        , m_clock(webrtc::Clock::GetRealTimeClock())
+        , m_bitrateAdjuster(std::make_unique<webrtc::BitrateAdjuster>(0.5f, 0.95f))
     {
         this->m_setKeyFrame.connect(observer, &IVideoEncoderObserver::SetKeyFrame);
         this->m_setRates.connect(observer, &IVideoEncoderObserver::SetRates);
@@ -28,6 +31,18 @@ namespace webrtc
         {
             return WEBRTC_VIDEO_CODEC_ERR_PARAMETER;
         }
+        if(codec_settings->maxBitrate > 0 && codec_settings->startBitrate > codec_settings->maxBitrate)
+        {
+            return WEBRTC_VIDEO_CODEC_ERR_PARAMETER;
+        }
+
+        m_codec = *codec_settings;
+        webrtc::SimulcastRateAllocator init_allocator(m_codec);
+        webrtc::VideoBitrateAllocation allocation =
+            init_allocator.Allocate(webrtc::VideoBitrateAllocationParameters(
+                webrtc::DataRate::KilobitsPerSec(m_codec.startBitrate), m_codec.maxFramerate));
+        SetRates(RateControlParameters(allocation, m_codec.maxFramerate));
+
         return WEBRTC_VIDEO_CODEC_OK;
     }
 
@@ -57,8 +72,6 @@ namespace webrtc
         m_encodedImage.SetTimestamp(frame.timestamp());
         m_encodedImage._encodedWidth = frame.video_frame_buffer()->width();
         m_encodedImage._encodedHeight = frame.video_frame_buffer()->height();
-        m_encodedImage.ntp_time_ms_ = frame.ntp_time_ms();
-        m_encodedImage.capture_time_ms_ = frame.render_time_ms();
         m_encodedImage.rotation_ = frame.rotation();
         m_encodedImage.content_type_ = webrtc::VideoContentType::UNSPECIFIED;
         m_encodedImage.timing_.flags = webrtc::VideoSendTiming::kInvalid;
@@ -81,7 +94,7 @@ namespace webrtc
             m_setKeyFrame(m_encoderId);
         }
 
-        m_encodedImage.set_buffer(&frameDataBuffer[0], frameDataBuffer.capacity());
+        m_encodedImage.SetEncodedData(webrtc::EncodedImageBuffer::Create(&frameDataBuffer[0], frameDataBuffer.size()));
         m_encodedImage.set_size(frameDataBuffer.size());
 
         m_fragHeader.VerifyAndAllocateFragmentationHeader(naluIndices.size());
@@ -108,12 +121,22 @@ namespace webrtc
             LogPrint("Encode callback failed %d", result.error);
             return WEBRTC_VIDEO_CODEC_ERROR;
         }
+
+        int64_t now_ms = m_clock->TimeInMilliseconds();
+        m_encode_fps.Update(1, now_ms);
+
+        m_bitrateAdjuster->Update(frameDataBuffer.size());
+
         return WEBRTC_VIDEO_CODEC_OK;
     }
 
     void DummyVideoEncoder::SetRates(const RateControlParameters& parameters)
     {
-        m_setRates(m_encoderId, parameters);
+        int64_t frameRate = parameters.framerate_fps;
+
+        uint32_t bitRate = parameters.bitrate.get_sum_bps();
+
+        m_setRates(m_encoderId, bitRate, frameRate);
     }
 
 } // end namespace webrtc

@@ -11,7 +11,6 @@ namespace webrtc
     class PeerConnectionObject;
     enum class RTCSdpType;
     enum class RTCPeerConnectionEventType;
-    struct RTCError;
     struct MediaStreamEvent;
 
     using DelegateDebugLog = void(*)(const char*);
@@ -19,10 +18,9 @@ namespace webrtc
     using DelegateMediaStreamOnAddTrack = void(*)(webrtc::MediaStreamInterface*, webrtc::MediaStreamTrackInterface*);
     using DelegateMediaStreamOnRemoveTrack = void(*)(webrtc::MediaStreamInterface*, webrtc::MediaStreamTrackInterface*);
     using DelegateSetSessionDescSuccess = void(*)(PeerConnectionObject*);
-    using DelegateSetSessionDescFailure = void(*)(PeerConnectionObject*, webrtc::RTCError);
+    using DelegateSetSessionDescFailure = void(*)(PeerConnectionObject*, webrtc::RTCErrorType, const char*);
 
     void debugLog(const char* buf);
-    void SetResolution(int32* width, int32* length);
     extern DelegateDebugLog delegateDebugLog;
 
     enum class RTCPeerConnectionState
@@ -47,6 +45,16 @@ namespace webrtc
         Max
     };
 
+    enum class RTCSignalingState
+    {
+        Stable,
+        HaveLocalOffer,
+        HaveRemoteOffer,
+        HaveLocalPranswer,
+        HaveRemotePranswer,
+        Closed
+    };
+
     enum class RTCPeerConnectionEventType
     {
         ConnectionStateChange,
@@ -61,6 +69,7 @@ namespace webrtc
         Offer,
         PrAnswer,
         Answer,
+        Rollback
     };
 
     enum class SdpSemanticsType
@@ -99,15 +108,6 @@ namespace webrtc
         Video
     };
 
-    struct RTCError
-    {
-        RTCErrorDetailType errorDetail;
-        long sdpLineNumber;
-        long httpRequestStatusCode;
-        long sctpCauseCode;
-        unsigned long receivedAlert;
-        unsigned long sentAlert;
-    };
 
     struct RTCSessionDescription
     {
@@ -143,17 +143,6 @@ namespace webrtc
         bool iceRestart;
         bool offerToReceiveAudio;
         bool offerToReceiveVideo;
-    };
-
-    struct RTCDataChannelInit
-    {
-        bool reliable = false;
-        bool ordered = true;
-        int maxRetransmitTime = -1;
-        int maxRetransmits = -1;
-        char* protocol;
-        bool negotiated = false;
-        int id = -1;
     };
 
     struct RTCAnswerOptions

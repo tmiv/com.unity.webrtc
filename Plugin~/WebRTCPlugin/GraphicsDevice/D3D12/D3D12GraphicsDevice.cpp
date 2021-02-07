@@ -32,8 +32,8 @@ D3D12GraphicsDevice::D3D12GraphicsDevice(ID3D12Device* nativeDevice, ID3D12Comma
 
 
 //---------------------------------------------------------------------------------------------------------------------
-D3D12GraphicsDevice::~D3D12GraphicsDevice() {
-
+D3D12GraphicsDevice::~D3D12GraphicsDevice()
+{
 }
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -73,13 +73,13 @@ bool D3D12GraphicsDevice::InitV() {
     {
         ThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
     }
+    m_isCudaSupport = CUDA_SUCCESS == m_cudaContext.Init(m_d3d12Device);
     return true;
 }
 
 //---------------------------------------------------------------------------------------------------------------------
 void D3D12GraphicsDevice::ShutdownV() {
-    m_commandList->Release();
-    m_commandAllocator->Release();
+    m_cudaContext.Shutdown();
     SAFE_RELEASE(m_d3d11Device);
     SAFE_RELEASE(m_d3d11Context);
     SAFE_RELEASE(m_copyResourceFence);
@@ -87,7 +87,7 @@ void D3D12GraphicsDevice::ShutdownV() {
 }
 
 //---------------------------------------------------------------------------------------------------------------------
-ITexture2D* D3D12GraphicsDevice::CreateDefaultTextureV(uint32_t w, uint32_t h) {
+ITexture2D* D3D12GraphicsDevice::CreateDefaultTextureV(uint32_t w, uint32_t h, UnityRenderingExtTextureFormat textureFormat) {
 
     return CreateSharedD3D12Texture(w,h);
 }
@@ -214,7 +214,7 @@ void D3D12GraphicsDevice::Barrier(ID3D12Resource* res,
 
 //----------------------------------------------------------------------------------------------------------------------
 
-ITexture2D* D3D12GraphicsDevice::CreateCPUReadTextureV(uint32_t w, uint32_t h) {
+ITexture2D* D3D12GraphicsDevice::CreateCPUReadTextureV(uint32_t w, uint32_t h, UnityRenderingExtTextureFormat textureFormat) {
     D3D12Texture2D* tex = CreateSharedD3D12Texture(w,h);
     const HRESULT hr = tex->CreateReadbackResource(m_d3d12Device);
     if (FAILED(hr)){

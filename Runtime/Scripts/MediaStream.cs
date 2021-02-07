@@ -1,9 +1,6 @@
-using UnityEngine;
 using System;
 using System.Linq;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Runtime.InteropServices;
 
 namespace Unity.WebRTC
 {
@@ -15,23 +12,18 @@ namespace Unity.WebRTC
         private DelegateOnAddTrack onAddTrack;
         private DelegateOnRemoveTrack onRemoveTrack;
 
-        internal IntPtr self;
-        private readonly string id;
+        private IntPtr self;
         private bool disposed;
 
-
-        public string Id
-        {
-            get
-            {
-                return id;
-            }
-        }
+        /// <summary>
+        /// 
+        /// </summary>
+        public string Id =>
+            NativeMethods.MediaStreamGetID(GetSelfOrThrow()).AsAnsiStringWithFreeMem();
 
         ~MediaStream()
         {
             this.Dispose();
-            WebRTC.Table.Remove(self);
         }
 
         public void Dispose()
@@ -43,6 +35,7 @@ namespace Unity.WebRTC
             if(self != IntPtr.Zero && !WebRTC.Context.IsNull)
             {
                 WebRTC.Context.DeleteMediaStream(this);
+                WebRTC.Table.Remove(self);
                 self = IntPtr.Zero;
             }
             this.disposed = true;
@@ -72,7 +65,7 @@ namespace Unity.WebRTC
 
             if (track.Kind == TrackKind.Video)
             {
-                WebRTC.Context.StopMediaStreamTrack(track.self);
+                WebRTC.Context.StopMediaStreamTrack(track.GetSelfOrThrow());
             }
             else
             {
@@ -80,44 +73,49 @@ namespace Unity.WebRTC
             }
         }
 
-        public IEnumerable<MediaStreamTrack> GetVideoTracks()
+        public IEnumerable<VideoStreamTrack> GetVideoTracks()
         {
-            int length = 0;
-            var buf = NativeMethods.MediaStreamGetVideoTracks(self, ref length);
-            return WebRTC.Deserialize(buf, length, ptr => new MediaStreamTrack(ptr));
+            var buf = NativeMethods.MediaStreamGetVideoTracks(GetSelfOrThrow(), out ulong length);
+            return WebRTC.Deserialize(buf, (int)length, ptr => new VideoStreamTrack(ptr));
         }
 
-        public IEnumerable<MediaStreamTrack> GetAudioTracks()
+        public IEnumerable<AudioStreamTrack> GetAudioTracks()
         {
-            int length = 0;
-            var buf = NativeMethods.MediaStreamGetAudioTracks(self, ref length);
-            return WebRTC.Deserialize(buf, length, ptr => new MediaStreamTrack(ptr));
+            var buf = NativeMethods.MediaStreamGetAudioTracks(GetSelfOrThrow(), out ulong length);
+            return WebRTC.Deserialize(buf, (int)length, ptr => new AudioStreamTrack(ptr));
         }
 
         public IEnumerable<MediaStreamTrack> GetTracks()
         {
-            return GetAudioTracks().Concat(GetVideoTracks());
+            return GetAudioTracks().Cast<MediaStreamTrack>().Concat(GetVideoTracks());
         }
 
         public bool AddTrack(MediaStreamTrack track)
         {
-            return NativeMethods.MediaStreamAddTrack(self, track.self);
+            return NativeMethods.MediaStreamAddTrack(GetSelfOrThrow(), track.GetSelfOrThrow());
         }
         public bool RemoveTrack(MediaStreamTrack track)
         {
-            return NativeMethods.MediaStreamRemoveTrack(self, track.self);
+            return NativeMethods.MediaStreamRemoveTrack(GetSelfOrThrow(), track.GetSelfOrThrow());
         }
 
         public MediaStream() : this(WebRTC.Context.CreateMediaStream(Guid.NewGuid().ToString()))
         {
         }
 
+        internal IntPtr GetSelfOrThrow()
+        {
+            if (self == IntPtr.Zero)
+            {
+                throw new InvalidOperationException("This instance has been disposed.");
+            }
+            return self;
+        }
+
         internal MediaStream(IntPtr ptr)
         {
             self = ptr;
             WebRTC.Table.Add(self, this);
-            id = NativeMethods.MediaStreamGetID(self).AsAnsiStringWithFreeMem();
-
             WebRTC.Context.MediaStreamRegisterOnAddTrack(self, MediaStreamOnAddTrack);
             WebRTC.Context.MediaStreamRegisterOnRemoveTrack(self, MediaStreamOnRemoveTrack);
         }
@@ -144,67 +142,6 @@ namespace Unity.WebRTC
                     stream.onRemoveTrack?.Invoke(new MediaStreamTrackEvent(track));
                 }
             });
-        }
-    }
-
-    public static class CameraExtension
-    {
-        public static VideoStreamTrack CaptureStreamTrack(this Camera cam, int width, int height, int bitrate, RenderTextureDepth depth = RenderTextureDepth.DEPTH_24)
-        {
-            switch (depth)
-            {
-                case RenderTextureDepth.DEPTH_16:
-                case RenderTextureDepth.DEPTH_24:
-                case RenderTextureDepth.DEPTH_32:
-                    break;
-                default:
-                    throw new InvalidEnumArgumentException(nameof(depth), (int)depth, typeof(RenderTextureDepth));
-            }
-
-            int depthValue = (int)depth;
-            var format = WebRTC.GetSupportedRenderTextureFormat(SystemInfo.graphicsDeviceType);
-            var rt = new RenderTexture(width, height, depthValue, format);
-            rt.Create();
-            cam.targetTexture = rt;
-            return new VideoStreamTrack(cam.name, rt);
-        }
-
-
-        public static MediaStream CaptureStream(this Camera cam, int width, int height, int bitrate, RenderTextureDepth depth = RenderTextureDepth.DEPTH_24)
-        {
-            var stream = new MediaStream(WebRTC.Context.CreateMediaStream("videostream"));
-            var track = cam.CaptureStreamTrack(width, height, bitrate, depth);
-            stream.AddTrack(track);
-            return stream;
-        }
-    }
-
-    public static class Audio
-    {
-        private static bool started;
-        public static MediaStream CaptureStream()
-        {
-            started = true;
-
-            var stream = new MediaStream(WebRTC.Context.CreateMediaStream("audiostream"));
-            var track = new MediaStreamTrack(WebRTC.Context.CreateAudioTrack("audio"));
-            stream.AddTrack(track);
-            return stream;
-        }
-
-        public static void Update(float[] audioData, int channels)
-        {
-            if (started)
-            {
-                NativeMethods.ProcessAudio(audioData, audioData.Length);
-            }
-        }
-        public static void Stop()
-        {
-            if (started)
-            {
-                started = false;
-            }
         }
     }
 }

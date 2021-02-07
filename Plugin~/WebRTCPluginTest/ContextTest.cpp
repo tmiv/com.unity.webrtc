@@ -1,9 +1,10 @@
 #include "pch.h"
 #include "GraphicsDeviceTestBase.h"
-#include "../WebRTCPlugin/GraphicsDevice/ITexture2D.h"
-#include "../WebRTCPlugin/Codec/EncoderFactory.h"
-#include "../WebRTCPlugin/Codec/IEncoder.h"
-#include "../WebRTCPlugin/Context.h"
+#include "GraphicsDevice/IGraphicsDevice.h"
+#include "GraphicsDevice/ITexture2D.h"
+#include "Codec/EncoderFactory.h"
+#include "Codec/IEncoder.h"
+#include "Context.h"
 
 namespace unity
 {
@@ -13,16 +14,16 @@ namespace webrtc
 class ContextTest : public GraphicsDeviceTestBase
 {
 protected:
-    std::unique_ptr<IEncoder> encoder_;
     const int width = 256;
     const int height = 256;
     std::unique_ptr<Context> context;
+    std::unique_ptr<IEncoder> encoder_;
 
     void SetUp() override {
         GraphicsDeviceTestBase::SetUp();
         EXPECT_NE(nullptr, m_device);
 
-        encoder_ = EncoderFactory::GetInstance().Init(width, height, m_device, m_encoderType);
+        encoder_ = EncoderFactory::GetInstance().Init(width, height, m_device, m_encoderType, m_textureFormat);
         EXPECT_NE(nullptr, encoder_);
 
         context = std::make_unique<Context>();
@@ -32,9 +33,9 @@ protected:
     }
 };
 TEST_P(ContextTest, InitializeAndFinalizeEncoder) {
-    const std::unique_ptr<ITexture2D> tex(m_device->CreateDefaultTextureV(width, height));
+    const std::unique_ptr<ITexture2D> tex(m_device->CreateDefaultTextureV(width, height, m_textureFormat));
     EXPECT_NE(nullptr, tex);
-    const auto track = context->CreateVideoTrack("video", tex.get());
+    const auto track = context->CreateVideoTrack("video");
     EXPECT_TRUE(context->InitializeEncoder(encoder_.get(), track));
 }
 
@@ -45,9 +46,9 @@ TEST_P(ContextTest, CreateAndDeleteMediaStream) {
 
 
 TEST_P(ContextTest, CreateAndDeleteVideoTrack) {
-    const std::unique_ptr<ITexture2D> tex(m_device->CreateDefaultTextureV(width, height));
+    const std::unique_ptr<ITexture2D> tex(m_device->CreateDefaultTextureV(width, height, m_textureFormat));
     EXPECT_NE(nullptr, tex.get());
-    const auto track = context->CreateVideoTrack("video", tex.get());
+    const auto track = context->CreateVideoTrack("video");
     EXPECT_NE(nullptr, track);
     EXPECT_TRUE(context->InitializeEncoder(encoder_.get(), track));
     context->DeleteMediaStreamTrack(track);
@@ -69,10 +70,10 @@ TEST_P(ContextTest, AddAndRemoveAudioTrackToMediaStream) {
 }
 
 TEST_P(ContextTest, AddAndRemoveVideoTrackToMediaStream) {
-    const std::unique_ptr<ITexture2D> tex(m_device->CreateDefaultTextureV(width, height));
+    const std::unique_ptr<ITexture2D> tex(m_device->CreateDefaultTextureV(width, height, m_textureFormat));
     const auto stream = context->CreateMediaStream("videostream");
-    const auto track = context->CreateVideoTrack("video", tex.get());
-    const auto videoTrack = reinterpret_cast<webrtc::AudioTrackInterface*>(track);
+    const auto track = context->CreateVideoTrack("video");
+    const auto videoTrack = reinterpret_cast<webrtc::VideoTrackInterface*>(track);
     stream->AddTrack(videoTrack);
     stream->RemoveTrack(videoTrack);
     context->DeleteMediaStream(stream);
@@ -88,12 +89,38 @@ TEST_P(ContextTest, CreateAndDeletePeerConnection) {
 TEST_P(ContextTest, CreateAndDeleteDataChannel) {
     const webrtc::PeerConnectionInterface::RTCConfiguration config;
     const auto connection = context->CreatePeerConnection(config);
-    RTCDataChannelInit init;
+    DataChannelInit init;
     init.protocol = "";
     const auto channel = context->CreateDataChannel(connection, "test", init);
     context->DeleteDataChannel(channel);
     context->DeletePeerConnection(connection);
 }
+
+TEST_P(ContextTest, CreateAndDeleteVideoRenderer) {
+    const auto renderer = context->CreateVideoRenderer();
+    EXPECT_NE(nullptr, renderer);
+    context->DeleteVideoRenderer(renderer);
+}
+
+TEST_P(ContextTest, EqualRendererGetById) {
+    const auto renderer = context->CreateVideoRenderer();
+    EXPECT_NE(nullptr, renderer);
+    const auto rendererId = renderer->GetId();
+    const auto rendererGetById = context->GetVideoRenderer(rendererId);
+    EXPECT_NE(nullptr, rendererGetById);
+    EXPECT_EQ(renderer, rendererGetById);
+    context->DeleteVideoRenderer(renderer);
+}
+
+TEST_P(ContextTest, AddAndRemoveVideoRendererToVideoTrack) {
+    const std::unique_ptr<ITexture2D> tex(m_device->CreateDefaultTextureV(width, height, m_textureFormat));
+    const auto track = context->CreateVideoTrack("video");
+    const auto renderer = context->CreateVideoRenderer();
+    track->AddOrUpdateSink(renderer, rtc::VideoSinkWants());
+    track->RemoveSink(renderer);
+    context->DeleteVideoRenderer(renderer);
+}
+
 INSTANTIATE_TEST_CASE_P(GraphicsDeviceParameters, ContextTest, testing::ValuesIn(VALUES_TEST_ENV));
 
 } // end namespace webrtc

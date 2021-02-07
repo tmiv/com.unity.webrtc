@@ -7,6 +7,10 @@ platforms:
     artifact_filename: webrtc-linux.zip
   - name: macos 
     artifact_filename: webrtc-mac.zip
+  - name: ios
+    artifact_filename: webrtc-ios.zip
+  - name: android
+    artifact_filename: webrtc-android.zip
 ---
 publish_com.unity.webrtc_github_release:
   name: Publish com.unity.webrtc to Github Release
@@ -15,16 +19,14 @@ publish_com.unity.webrtc_github_release:
     image: package-ci/win10:stable
     flavor: b1.large
   commands:
-    - npm install github-release-cli -g
+    - npm install github-release-cli@1.3.1 -g
     - github-release upload -o "Unity-Technologies" -r "com.unity.webrtc" -t "%GIT_TAG%" -n "%GIT_TAG%" "upm-ci~/packages/com.unity.webrtc-%GIT_TAG%.tgz"
   triggers:
     tags:
       only:
         - /^(v|V)?\d+\.\d+\.\d+(-preview(\.\d+)?)?$/
   dependencies:
-{% for platform in platforms %}
-    - .yamato/upm-ci-webrtc-packages.yml#pack_webrtc_{{ platform.name }}
-{% endfor %}    
+    - .yamato/upm-ci-webrtc-packages.yml#pack_webrtc
 
 publish_libwebrtc_github_release:
   name: Publish libwebrtc {{ webrtc_version.name }} to Github Release
@@ -33,7 +35,7 @@ publish_libwebrtc_github_release:
     image: package-ci/win10:stable
     flavor: b1.large
   commands:
-    - npm install github-release-cli -g
+    - npm install github-release-cli@1.3.1 -g
     {% for platform in platforms %}
     - github-release upload -o "Unity-Technologies" -r "com.unity.webrtc" -t "{{ webrtc_version.name }}" -n "{{ webrtc_version.name }}" "artifacts/{{ platform.artifact_filename }}"
     {% endfor %}

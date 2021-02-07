@@ -25,17 +25,18 @@ bool OpenGLGraphicsDevice::InitV() {
     glDebugMessageCallback(OnOpenGLDebugMessage, nullptr);
     glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, &unusedIds, true);
 #endif
+    m_isCudaSupport = CUDA_SUCCESS == m_cudaContext.InitGL();
     return true;
 }
 
 //---------------------------------------------------------------------------------------------------------------------
 
 void OpenGLGraphicsDevice::ShutdownV() {
-
+    m_cudaContext.Shutdown();
 }
 
 //---------------------------------------------------------------------------------------------------------------------
-ITexture2D* OpenGLGraphicsDevice::CreateDefaultTextureV(uint32_t w, uint32_t h) {
+ITexture2D* OpenGLGraphicsDevice::CreateDefaultTextureV(uint32_t w, uint32_t h, UnityRenderingExtTextureFormat textureFormat) {
 
     GLuint tex;
     glGenTextures(1, &tex);
@@ -46,7 +47,7 @@ ITexture2D* OpenGLGraphicsDevice::CreateDefaultTextureV(uint32_t w, uint32_t h) 
 }
 
 //---------------------------------------------------------------------------------------------------------------------
-ITexture2D* OpenGLGraphicsDevice::CreateCPUReadTextureV(uint32_t w, uint32_t h) {
+ITexture2D* OpenGLGraphicsDevice::CreateCPUReadTextureV(uint32_t w, uint32_t h, UnityRenderingExtTextureFormat textureFormat) {
     assert(false && "CreateCPUReadTextureV need to implement on OpenGL");
     return nullptr;
 }
@@ -54,42 +55,36 @@ ITexture2D* OpenGLGraphicsDevice::CreateCPUReadTextureV(uint32_t w, uint32_t h) 
 
 //---------------------------------------------------------------------------------------------------------------------
 bool OpenGLGraphicsDevice::CopyResourceV(ITexture2D* dest, ITexture2D* src) {
-    auto nativeDest = reinterpret_cast<GLuint*>(dest->GetNativeTexturePtrV());
-    auto nativeSrc = reinterpret_cast<GLuint*>(src->GetNativeTexturePtrV());
     auto width = dest->GetWidth();
     auto height  = dest->GetHeight();
-
-    GLuint srcName = *nativeSrc;
-    GLuint dstName = *nativeDest;
+    GLuint dstName = reinterpret_cast<intptr_t>(dest->GetNativeTexturePtrV());
+    GLuint srcName = reinterpret_cast<intptr_t>(src->GetNativeTexturePtrV());
     return CopyResource(dstName, srcName, width, height);
-
 }
 
 //---------------------------------------------------------------------------------------------------------------------
 bool OpenGLGraphicsDevice::CopyResourceFromNativeV(ITexture2D* dest, void* nativeTexturePtr) {
-    auto nativeDest = reinterpret_cast<GLuint*>(dest->GetNativeTexturePtrV());
     auto width = dest->GetWidth();
     auto height  = dest->GetHeight();
-
-    GLuint srcName = (GLuint)(size_t)(nativeTexturePtr);
-    GLuint dstName = *nativeDest;
+    GLuint dstName = reinterpret_cast<intptr_t>(dest->GetNativeTexturePtrV());
+    GLuint srcName = reinterpret_cast<intptr_t>(nativeTexturePtr);
     return CopyResource(dstName, srcName, width, height);
 }
 
 bool OpenGLGraphicsDevice::CopyResource(GLuint dstName, GLuint srcName, uint32 width, uint32 height) {
     if(srcName == dstName)
     {
-        LogPrint("Same texture");
+//        LogPrint("Same texture");
         return false;
     }
     if(glIsTexture(srcName) == GL_FALSE)
     {
-        LogPrint("srcName is not texture");
+//        LogPrint("srcName is not texture");
         return false;
     }
     if(glIsTexture(dstName) == GL_FALSE)
     {
-        LogPrint("dstName is not texture");
+//        LogPrint("dstName is not texture");
         return false;
     }
     glCopyImageSubData(

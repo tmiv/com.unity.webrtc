@@ -1,9 +1,19 @@
 #include "pch.h"
 
-#include "Codec/EncoderFactory.h"
+#include <IUnityGraphics.h>
+#include <IUnityProfiler.h>
+#include <IUnityRenderingExtensions.h>
+
 #include "Context.h"
-#include "IUnityGraphics.h"
+#include "ScopedProfiler.h"
+#include "Codec/EncoderFactory.h"
 #include "GraphicsDevice/GraphicsDevice.h"
+#include "GraphicsDevice/GraphicsUtility.h"
+
+#if defined(SUPPORT_VULKAN)
+#include <IUnityGraphicsVulkan.h>
+#include "GraphicsDevice/Vulkan/UnityVulkanInitCallback.h"
+#endif
 
 enum class VideoStreamRenderEventID
 {
@@ -16,13 +26,50 @@ namespace unity
 {
 namespace webrtc
 {
-
     IUnityInterfaces* s_UnityInterfaces = nullptr;
     IUnityGraphics* s_Graphics = nullptr;
     Context* s_context = nullptr;
-    IGraphicsDevice* s_device;
-    std::map<const ::webrtc::MediaStreamTrackInterface*, std::unique_ptr<IEncoder>> s_mapEncoder;
+    std::map<const MediaStreamTrackInterface*, std::unique_ptr<IEncoder>> s_mapEncoder;
+    std::unique_ptr <Clock> s_clock;
 
+    const UnityProfilerMarkerDesc* s_MarkerEncode = nullptr;
+    const UnityProfilerMarkerDesc* s_MarkerDecode = nullptr;
+    std::unique_ptr<IGraphicsDevice> s_gfxDevice;
+
+    IGraphicsDevice* GraphicsUtility::GetGraphicsDevice()
+    {
+        RTC_DCHECK(s_gfxDevice.get());
+        return s_gfxDevice.get();
+    }
+
+    UnityGfxRenderer GraphicsUtility::GetGfxRenderer()
+    {
+        RTC_DCHECK(s_Graphics);
+        return s_Graphics->GetRenderer();
+    }
+
+    static webrtc::VideoType ConvertTextureFormat(UnityRenderingExtTextureFormat type)
+    {
+        switch (type)
+        {
+        case UnityRenderingExtTextureFormat::kUnityRenderingExtFormatB8G8R8A8_SRGB:
+        case UnityRenderingExtTextureFormat::kUnityRenderingExtFormatB8G8R8A8_UNorm:
+        case UnityRenderingExtTextureFormat::kUnityRenderingExtFormatB8G8R8A8_SNorm:
+        case UnityRenderingExtTextureFormat::kUnityRenderingExtFormatB8G8R8A8_UInt:
+        case UnityRenderingExtTextureFormat::kUnityRenderingExtFormatB8G8R8A8_SInt:
+            return webrtc::VideoType::kARGB;
+        case UnityRenderingExtTextureFormat::kUnityRenderingExtFormatR8G8B8A8_SRGB:
+        case UnityRenderingExtTextureFormat::kUnityRenderingExtFormatR8G8B8A8_UNorm:
+        case UnityRenderingExtTextureFormat::kUnityRenderingExtFormatR8G8B8A8_SNorm:
+        case UnityRenderingExtTextureFormat::kUnityRenderingExtFormatR8G8B8A8_UInt:
+        case UnityRenderingExtTextureFormat::kUnityRenderingExtFormatR8G8B8A8_SInt:
+        case UnityRenderingExtTextureFormat::kUnityRenderingExtFormatA8R8G8B8_SRGB:
+        case UnityRenderingExtTextureFormat::kUnityRenderingExtFormatA8R8G8B8_UNorm:
+            return webrtc::VideoType::kABGR;
+        default:
+            return webrtc::VideoType::kUnknown;
+        }
+    }
 } // end namespace webrtc
 } // end namespace unity
 
@@ -34,14 +81,37 @@ static void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType ev
     {
     case kUnityGfxDeviceEventInitialize:
     {
+        /// note::
+        /// kUnityGfxDeviceEventInitialize event is occurred twice on Unity Editor.
+        /// First time, s_UnityInterfaces return UnityGfxRenderer as kUnityGfxRendererNull.
+        /// The actual value of UnityGfxRenderer is returned on second time.
+
         s_mapEncoder.clear();
+
+        UnityGfxRenderer renderer =
+            s_UnityInterfaces->Get<IUnityGraphics>()->GetRenderer();
+        if (renderer == kUnityGfxRendererNull)
+            break;
+
+        s_gfxDevice.reset(GraphicsDevice::GetInstance().Init(s_UnityInterfaces));
+        if(s_gfxDevice != nullptr)
+        {
+            s_gfxDevice->InitV();
+        }
         break;
     }
     case kUnityGfxDeviceEventShutdown:
     {
+        s_mapEncoder.clear();
+
+        if (s_gfxDevice != nullptr)
+        {
+            s_gfxDevice->ShutdownV();
+            s_gfxDevice.reset();
+        }
+
         //UnityPluginUnload not called normally
         s_Graphics->UnregisterDeviceEventCallback(OnGraphicsDeviceEvent);
-        s_mapEncoder.clear();
         break;
     }
     case kUnityGfxDeviceEventBeforeReset:
@@ -54,51 +124,132 @@ static void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType ev
     }
     };
 }
+
+// forward declaration for plugin load event
+void PluginLoad(IUnityInterfaces* unityInterfaces);
+void PluginUnload();
+
 // Unity plugin load event
+//
+// "That is simply registering our UnityPluginLoad and UnityPluginUnload,
+// as on iOS we cannot use dynamic libraries (hence we cannot load functions
+// from them by name as we usually do on other platforms)."
+// https://github.com/Unity-Technologies/iOSNativeCodeSamples/blob/2019-dev/Graphics/MetalNativeRenderingPlugin/README.md
+//
+#if defined(UNITY_IOS) || defined(UNITY_IOS_SIMULATOR)
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityWebRTCPluginLoad(IUnityInterfaces* unityInterfaces)
+{
+    PluginLoad(unityInterfaces);
+}
+
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityWebRTCPluginUnload()
+{
+    PluginUnload();
+}
+#else
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginLoad(IUnityInterfaces* unityInterfaces)
 {
+    PluginLoad(unityInterfaces);
+}
+
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginUnload()
+{
+    PluginUnload();
+}
+#endif
+
+// Unity plugin load event
+void PluginLoad(IUnityInterfaces* unityInterfaces)
+{
+#if WIN32 && _DEBUG
+    _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+#endif
+
     s_UnityInterfaces = unityInterfaces;
     s_Graphics = unityInterfaces->Get<IUnityGraphics>();
     s_Graphics->RegisterDeviceEventCallback(OnGraphicsDeviceEvent);
+    s_clock.reset(Clock::GetRealTimeClock());
+
+#if defined(SUPPORT_VULKAN)
+    IUnityGraphicsVulkan* vulkan = unityInterfaces->Get<IUnityGraphicsVulkan>();
+    if(vulkan != nullptr)
+    {
+        vulkan->InterceptInitialization(InterceptVulkanInitialization, nullptr);
+    }
+#endif
+
+    IUnityProfiler* unityProfiler = unityInterfaces->Get<IUnityProfiler>();
+    if (unityProfiler != nullptr)
+    {
+        unityProfiler->CreateMarker(
+            &s_MarkerEncode,
+            "UnityVideoTrackSource.OnFrameCaptured",
+            kUnityProfilerCategoryRender,
+            kUnityProfilerMarkerFlagDefault, 0);
+        unityProfiler->CreateMarker(
+            &s_MarkerDecode,
+            "UnityVideoRenderer.ConvertVideoFrameToTextureAndWriteToBuffer",
+            kUnityProfilerCategoryRender,
+            kUnityProfilerMarkerFlagDefault, 0);
+        ScopedProfiler::UnityProfiler = unityProfiler;
+    }
+
     OnGraphicsDeviceEvent(kUnityGfxDeviceEventInitialize);
 }
-extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginUnload()
+
+void PluginUnload()
 {
     s_Graphics->UnregisterDeviceEventCallback(OnGraphicsDeviceEvent);
+    s_clock.reset();
 }
+
+// Notice: When DebugLog is used in a method called from RenderingThread, 
+// it hangs when attempting to leave PlayMode and re-enter PlayMode.
+// So, we comment out `DebugLog`.
 
 static void UNITY_INTERFACE_API OnRenderEvent(int eventID, void* data)
 {
     if (s_context == nullptr)
-    {
         return;
-    }
-    const auto track = reinterpret_cast<::webrtc::MediaStreamTrackInterface*>(data);
-    const auto event = static_cast<VideoStreamRenderEventID>(eventID);
+    if (!ContextManager::GetInstance()->Exists(s_context))
+        return;
+    std::unique_lock<std::mutex> lock(s_context->mutex, std::try_to_lock);
+    if(!lock.owns_lock())
+        return;
+
+    MediaStreamTrackInterface* track =
+        static_cast<MediaStreamTrackInterface*>(data);
+    const VideoStreamRenderEventID event =
+        static_cast<VideoStreamRenderEventID>(eventID);
 
     switch(event)
     {
         case VideoStreamRenderEventID::Initialize:
         {
-            if (!GraphicsDevice::GetInstance().IsInitialized())
-            {
-                GraphicsDevice::GetInstance().Init(s_UnityInterfaces);
-            }
-            s_device = GraphicsDevice::GetInstance().GetDevice();
             const VideoEncoderParameter* param = s_context->GetEncoderParameter(track);
             const UnityEncoderType encoderType = s_context->GetEncoderType();
-            s_mapEncoder[track] = EncoderFactory::GetInstance().Init(param->width, param->height, s_device, encoderType);
+            UnityVideoTrackSource* source = s_context->GetVideoSource(track);
+            UnityGfxRenderer gfxRenderer = GraphicsUtility::GetGfxRenderer();
+            void* ptr = GraphicsUtility::TextureHandleToNativeGraphicsPtr(
+                param->textureHandle, s_gfxDevice.get(), gfxRenderer);
+            source->Init(ptr);
+            s_mapEncoder[track] = EncoderFactory::GetInstance().Init(
+                param->width, param->height, s_gfxDevice.get(), encoderType, param->textureFormat);
             if (!s_context->InitializeEncoder(s_mapEncoder[track].get(), track))
             {
-                LogPrint("Encoder initialization faild.");
+                // DebugLog("Encoder initialization faild.");
             }
             return;
         }
         case VideoStreamRenderEventID::Encode:
         {
-            if(!s_context->EncodeFrame(track))
+            UnityVideoTrackSource* source = s_context->GetVideoSource(track);
+            if (source == nullptr)
+                return;
+            int64_t timestamp_us = s_clock->TimeInMicroseconds();
             {
-                LogPrint("Encode frame failed");
+                ScopedProfiler profiler(*s_MarkerEncode);
+                source->OnFrameCaptured(timestamp_us);
             }
             return;
         }
@@ -106,12 +257,10 @@ static void UNITY_INTERFACE_API OnRenderEvent(int eventID, void* data)
         {
             s_context->FinalizeEncoder(s_mapEncoder[track].get());
             s_mapEncoder.erase(track);
-            GraphicsDevice::GetInstance().Shutdown();
             return;
         }
         default: {
-            LogPrint("Unknown event id %d", eventID);
-            return;
+            RTC_DCHECK(0);
         }
     }
 }
@@ -120,4 +269,40 @@ extern "C" UnityRenderingEventAndData UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API
 {
     s_context = context;
     return OnRenderEvent;
+}
+
+static void UNITY_INTERFACE_API TextureUpdateCallback(int eventID, void* data)
+{
+    if (s_context == nullptr)
+        return;
+    if (!ContextManager::GetInstance()->Exists(s_context))
+        return;
+    std::unique_lock<std::mutex> lock(s_context->mutex, std::try_to_lock);
+    if (!lock.owns_lock())
+        return;
+
+    auto event = static_cast<UnityRenderingExtEventType>(eventID);
+
+    if (event == kUnityRenderingExtEventUpdateTextureBeginV2)
+    {
+        auto params = reinterpret_cast<UnityRenderingExtTextureUpdateParamsV2 *>(data);
+        
+        auto renderer = s_context->GetVideoRenderer(params->userData);
+        if (renderer == nullptr)
+        {
+            // DebugLog("VideoRenderer not found, rendererId:%d", params->userData);
+            return;
+        }
+        {
+            ScopedProfiler profiler(*s_MarkerDecode);
+            renderer->ConvertVideoFrameToTextureAndWriteToBuffer(params->width, params->height, ConvertTextureFormat(params->format));
+        }
+        params->texData = renderer->tempBuffer.data();
+    }
+}
+
+extern "C" UnityRenderingEventAndData UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetUpdateTextureFunc(Context* context)
+{
+    s_context = context;
+    return TextureUpdateCallback;
 }

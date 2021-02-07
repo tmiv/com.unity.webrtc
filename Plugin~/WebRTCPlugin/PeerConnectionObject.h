@@ -1,6 +1,9 @@
 #pragma once
 #include "WebRTCPlugin.h"
 #include "DataChannelObject.h"
+#include "PeerConnectionStatsCollectorCallback.h"
+
+using namespace ::webrtc;
 
 namespace unity
 {
@@ -8,38 +11,14 @@ namespace webrtc
 {
 
     using DelegateCreateSDSuccess = void(*)(PeerConnectionObject*, RTCSdpType, const char*);
-    using DelegateCollectStats = void(*)(PeerConnectionObject*, const char*);;
-    using DelegateCreateSDFailure = void(*)(PeerConnectionObject*);
+    using DelegateCreateSDFailure = void(*)(PeerConnectionObject*, webrtc::RTCErrorType, const char*);
     using DelegateLocalSdpReady = void(*)(PeerConnectionObject*, const char*, const char*);
     using DelegateIceCandidate = void(*)(PeerConnectionObject*, const char*, const char*, const int);
     using DelegateOnIceConnectionChange = void(*)(PeerConnectionObject*, webrtc::PeerConnectionInterface::IceConnectionState);
+    using DelegateOnIceGatheringChange = void(*)(PeerConnectionObject*, webrtc::PeerConnectionInterface::IceGatheringState);
     using DelegateOnDataChannel = void(*)(PeerConnectionObject*, DataChannelObject*);
     using DelegateOnRenegotiationNeeded = void(*)(PeerConnectionObject*);
     using DelegateOnTrack = void(*)(PeerConnectionObject*, webrtc::RtpTransceiverInterface*);
-
-    //[TODO-sin: 2019-12-20] Separate to a different file.
-    class PeerConnectionStatsCollectorCallback : public virtual webrtc::RTCStatsCollectorCallback{
-    public:
-        PeerConnectionStatsCollectorCallback(PeerConnectionObject* owner) { m_owner = owner;}
-        
-        ~PeerConnectionStatsCollectorCallback() override = default;
-        void AddRef() const override {};
-        rtc::RefCountReleaseStatus Release() const override { return rtc::RefCountReleaseStatus::kOtherRefsRemained; }
-        void SetCallback(DelegateCollectStats callback) { m_collectStatsCallback = callback; }
-
-        void OnStatsDelivered(const rtc::scoped_refptr<const webrtc::RTCStatsReport>& report) override
-        {
-            if (nullptr==m_collectStatsCallback){
-                return;
-            }
-
-            const std::string json  = report->ToJson();
-            m_collectStatsCallback(m_owner, json.c_str());
-        };
-    private:
-        DelegateCollectStats m_collectStatsCallback = nullptr;
-        PeerConnectionObject* m_owner = nullptr;
-    };
 
     class PeerConnectionObject
         : public webrtc::CreateSessionDescriptionObserver
@@ -50,37 +29,31 @@ namespace webrtc
         ~PeerConnectionObject();
 
         void Close();
-        void SetLocalDescription(const RTCSessionDescription& desc, webrtc::SetSessionDescriptionObserver* observer);
-        //void GetLocalDescription(RTCSessionDescription& desc) const;
-        //void GetRemoteDescription(RTCSessionDescription& desc) const;
+        RTCErrorType SetLocalDescription(
+            const RTCSessionDescription& desc, webrtc::SetSessionDescriptionObserver* observer, std::string& error);
+        RTCErrorType SetRemoteDescription(
+            const RTCSessionDescription& desc, webrtc::SetSessionDescriptionObserver* observer, std::string& error);
+        
         bool GetSessionDescription(const webrtc::SessionDescriptionInterface* sdp, RTCSessionDescription& desc) const;
-        void CollectStats();
-        void SetRemoteDescription(const RTCSessionDescription& desc, webrtc::SetSessionDescriptionObserver* observer);
         webrtc::RTCErrorType SetConfiguration(const std::string& config);
         std::string GetConfiguration() const;
         void CreateOffer(const RTCOfferOptions& options);
         void CreateAnswer(const RTCAnswerOptions& options);
-        void AddIceCandidate(const RTCIceCandidate& candidate);
+        void ReceiveStatsReport(const rtc::scoped_refptr<const webrtc::RTCStatsReport>& report);
 
         void RegisterCallbackCreateSD(DelegateCreateSDSuccess onSuccess, DelegateCreateSDFailure onFailure)
         {
             onCreateSDSuccess = onSuccess;
             onCreateSDFailure = onFailure;
         }
-        void RegisterCallbackCollectStats(DelegateCollectStats getStatsCallback)
-        {
-            m_statsCollectorCallback->SetCallback(getStatsCallback);
-        }
 
         void RegisterLocalSdpReady(DelegateLocalSdpReady callback) { onLocalSdpReady = callback; }
         void RegisterIceCandidate(DelegateIceCandidate callback) { onIceCandidate = callback; }
         void RegisterIceConnectionChange(DelegateOnIceConnectionChange callback) { onIceConnectionChange = callback; };
+        void RegisterIceGatheringChange(DelegateOnIceGatheringChange callback) { onIceGatheringChange = callback; }
         void RegisterOnDataChannel(DelegateOnDataChannel callback) { onDataChannel = callback; }
         void RegisterOnRenegotiationNeeded(DelegateOnRenegotiationNeeded callback) { onRenegotiationNeeded = callback; }
         void RegisterOnTrack(DelegateOnTrack callback) { onTrack = callback; }
-
-        RTCPeerConnectionState GetConnectionState();
-        RTCIceConnectionState GetIceCandidateState();
 
         //webrtc::CreateSessionDescriptionObserver
         // This callback transfers the ownership of the |desc|.
@@ -128,6 +101,7 @@ namespace webrtc
         DelegateIceCandidate onIceCandidate = nullptr;
         DelegateLocalSdpReady onLocalSdpReady = nullptr;
         DelegateOnIceConnectionChange onIceConnectionChange = nullptr;
+        DelegateOnIceGatheringChange onIceGatheringChange = nullptr;
         DelegateOnDataChannel onDataChannel = nullptr;
         DelegateOnRenegotiationNeeded onRenegotiationNeeded = nullptr;
         DelegateOnTrack onTrack = nullptr;

@@ -15,7 +15,9 @@
 #include "api/video_codecs/sdp_video_format.h"
 #include "api/video/video_frame.h"
 #include "api/video/video_frame_buffer.h"
+#include "api/video/video_sink_interface.h"
 #include "api/video/i420_buffer.h"
+#include "api/video_track_source_proxy.h"
 
 #include "rtc_base/thread.h"
 #include "rtc_base/ref_counted_object.h"
@@ -54,6 +56,8 @@
 #include "modules/audio_device/audio_device_generic.h"
 #include "modules/audio_processing/include/audio_processing.h"
 #include "modules/video_coding/codecs/h264/include/h264.h"
+#include "modules/video_coding/codecs/vp8/include/vp8.h"
+#include "modules/video_coding/codecs/vp9/include/vp9.h"
 
 #include "common_video/h264/h264_bitstream_parser.h"
 #include "common_video/h264/h264_common.h"
@@ -64,6 +68,7 @@
 #pragma endregion
 
 #include "PlatformBase.h"
+#include "IUnityRenderingExtensions.h"
 
 #if defined(SUPPORT_D3D11)
 #include <comdef.h>
@@ -92,6 +97,12 @@
 
 #if defined(SUPPORT_VULKAN)
 #include "IUnityGraphicsVulkan.h"
+#endif
+
+#if _WIN32 && _DEBUG
+#define _CRTDBG_MAP_ALLOC
+#include <crtdbg.h>
+#define new new(_NORMAL_BLOCK, __FILE__, __LINE__)
 #endif
 
 namespace unity
@@ -144,6 +155,6 @@ namespace webrtc
         UnityEncoderSoftware = 0,
         UnityEncoderHardware = 1,
     };
-    
+
 } // end namespace webrtc
 } // end namespace unity

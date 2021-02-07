@@ -1,17 +1,13 @@
 using System;
-using System.Collections.Generic;
-using System.Runtime.InteropServices;
-using UnityEngine;
 
 namespace Unity.WebRTC
 {
     public class MediaStreamTrack : IDisposable
     {
-        internal IntPtr self;
+        protected IntPtr self;
         protected bool disposed;
         private bool enabled;
         private TrackState readyState;
-        internal Action<MediaStreamTrack> stopTrack;
 
         /// <summary>
         ///
@@ -20,47 +16,41 @@ namespace Unity.WebRTC
         {
             get
             {
-                return NativeMethods.MediaStreamTrackGetEnabled(self);
+                return NativeMethods.MediaStreamTrackGetEnabled(GetSelfOrThrow());
             }
             set
             {
-                NativeMethods.MediaStreamTrackSetEnabled(self, value);
+                NativeMethods.MediaStreamTrackSetEnabled(GetSelfOrThrow(), value);
             }
         }
 
         /// <summary>
         ///
         /// </summary>
-        public TrackState ReadyState
-        {
-            get
-            {
-                return NativeMethods.MediaStreamTrackGetReadyState(self);
-            }
-        }
+        public TrackState ReadyState =>
+            NativeMethods.MediaStreamTrackGetReadyState(GetSelfOrThrow());
 
         /// <summary>
         ///
         /// </summary>
-        public TrackKind Kind { get; }
+        public TrackKind Kind =>
+            NativeMethods.MediaStreamTrackGetKind(GetSelfOrThrow());
 
         /// <summary>
         ///
         /// </summary>
-        public string Id { get; }
+        public string Id =>
+            NativeMethods.MediaStreamTrackGetID(GetSelfOrThrow()).AsAnsiStringWithFreeMem();
 
         internal MediaStreamTrack(IntPtr ptr)
         {
             self = ptr;
             WebRTC.Table.Add(self, this);
-            Kind = NativeMethods.MediaStreamTrackGetKind(self);
-            Id = NativeMethods.MediaStreamTrackGetID(self).AsAnsiStringWithFreeMem();
         }
 
         ~MediaStreamTrack()
         {
             this.Dispose();
-            WebRTC.Table.Remove(self);
         }
 
         public virtual void Dispose()
@@ -69,11 +59,14 @@ namespace Unity.WebRTC
             {
                 return;
             }
+
             if (self != IntPtr.Zero && !WebRTC.Context.IsNull)
             {
                 WebRTC.Context.DeleteMediaStreamTrack(self);
+                WebRTC.Table.Remove(self);
                 self = IntPtr.Zero;
             }
+
             this.disposed = true;
             GC.SuppressFinalize(this);
         }
@@ -81,125 +74,26 @@ namespace Unity.WebRTC
         //Disassociate track from its source(video or audio), not for destroying the track
         public void Stop()
         {
-            stopTrack(this);
-        }
-    }
-
-    public class VideoStreamTrack : MediaStreamTrack
-    {
-        internal static List<VideoStreamTrack> tracks = new List<VideoStreamTrack>();
-
-        readonly bool m_needFlip = false;
-        readonly UnityEngine.Texture m_sourceTexture;
-        readonly UnityEngine.RenderTexture m_destTexture;
-
-        private static UnityEngine.RenderTexture CreateRenderTexture(int width, int height, UnityEngine.RenderTextureFormat format)
-        {
-            var tex = new UnityEngine.RenderTexture(width, height, 0, format);
-            tex.Create();
-            return tex;
+            WebRTC.Context.StopMediaStreamTrack(GetSelfOrThrow());
         }
 
-        internal VideoStreamTrack(string label, UnityEngine.Texture source, UnityEngine.RenderTexture dest, int width, int height)
-            : this(label, dest.GetNativeTexturePtr(), width, height)
+        internal static MediaStreamTrack Create(IntPtr ptr)
         {
-            m_needFlip = true;
-            m_sourceTexture = source;
-            m_destTexture = dest;
-        }
-
-        /// <summary>
-        /// note:
-        /// The videotrack cannot be used if the encoder has not been initialized.
-        /// Do not use it until the initialization is complete.
-        /// </summary>
-        public bool IsInitialized
-        {
-            get
+            if (NativeMethods.MediaStreamTrackGetKind(ptr) == TrackKind.Video)
             {
-                return WebRTC.Context.GetInitializationResult(self) == CodecInitializationResult.Success;
+                return new VideoStreamTrack(ptr);
             }
+
+            return new AudioStreamTrack(ptr);
         }
 
-        internal void Update()
+        internal IntPtr GetSelfOrThrow()
         {
-            // [Note-kazuki: 2020-03-09] Flip vertically RenderTexture
-            // note: streamed video is flipped vertical if no action was taken:
-            //  - duplicate RenderTexture from its source texture
-            //  - call Graphics.Blit command with flip material every frame
-            //  - it might be better to implement this if possible
-            if (m_needFlip)
+            if (self == IntPtr.Zero)
             {
-                UnityEngine.Graphics.Blit(m_sourceTexture, m_destTexture, WebRTC.flipMat);
+                throw new InvalidOperationException("This instance has been disposed.");
             }
-            WebRTC.Context.Encode(self);
-        }
-
-        /// <summary>
-        /// Creates a new VideoStream object.
-        /// The track is created with a `source`.
-        /// </summary>
-        /// <param name="label"></param>
-        /// <param name="source"></param>
-        /// <param name="width"></param>
-        /// <param name="height"></param>
-        public VideoStreamTrack(string label, UnityEngine.RenderTexture source)
-            : this(label, source, CreateRenderTexture(source.width, source.height, source.format), source.width, source.height)
-        {
-        }
-
-        public VideoStreamTrack(string label, UnityEngine.Texture source)
-            : this(label,
-                source,
-                CreateRenderTexture(source.width, source.height, WebRTC.GetSupportedRenderTextureFormat(SystemInfo.graphicsDeviceType)),
-                source.width,
-                source.height)
-        {
-        }
-
-
-        /// <summary>
-        /// Creates a new VideoStream object.
-        /// The track is created with a source texture `ptr`.
-        /// It is noted that streamed video might be flipped when not action was taken. Almost case it has no problem to use other constructor instead.
-        ///
-        /// See Also: Texture.GetNativeTexturePtr
-        /// </summary>
-        /// <param name="label"></param>
-        /// <param name="ptr"></param>
-        /// <param name="width"></param>
-        /// <param name="height"></param>
-        public VideoStreamTrack(string label, IntPtr ptr, int width, int height)
-            : base(WebRTC.Context.CreateVideoTrack(label, ptr))
-        {
-            WebRTC.Context.SetVideoEncoderParameter(self, width, height);
-            WebRTC.Context.InitializeEncoder(self);
-            tracks.Add(this);
-        }
-
-        public override void Dispose()
-        {
-            if (this.disposed)
-            {
-                return;
-            }
-            if (self != IntPtr.Zero && !WebRTC.Context.IsNull)
-            {
-                WebRTC.Context.FinalizeEncoder(self);
-                tracks.Remove(this);
-                WebRTC.Context.DeleteMediaStreamTrack(self);
-                UnityEngine.Object.DestroyImmediate(m_destTexture);
-                self = IntPtr.Zero;
-            }
-            this.disposed = true;
-            GC.SuppressFinalize(this);
-        }
-    }
-
-    public class AudioStreamTrack : MediaStreamTrack
-    {
-        public AudioStreamTrack(string label) : base(WebRTC.Context.CreateAudioTrack(label))
-        {
+            return self;
         }
     }
 
@@ -208,6 +102,7 @@ namespace Unity.WebRTC
         Audio,
         Video
     }
+
     public enum TrackState
     {
         Live,
@@ -216,8 +111,6 @@ namespace Unity.WebRTC
 
     public class RTCTrackEvent
     {
-        public MediaStreamTrack Track { get; }
-
         public RTCRtpTransceiver Transceiver { get; }
 
         public RTCRtpReceiver Receiver
@@ -228,11 +121,17 @@ namespace Unity.WebRTC
             }
         }
 
-        internal RTCTrackEvent(IntPtr ptrTransceiver)
+        public MediaStreamTrack Track
         {
-            IntPtr ptrTrack = NativeMethods.TransceiverGetTrack(ptrTransceiver);
-            Track = WebRTC.FindOrCreate(ptrTrack, ptr => new MediaStreamTrack(ptr));
-            Transceiver = new RTCRtpTransceiver(ptrTransceiver);
+            get
+            {
+                return Receiver.Track;
+            }
+        }
+
+        internal RTCTrackEvent(IntPtr ptrTransceiver, RTCPeerConnection peer)
+        {
+            Transceiver = new RTCRtpTransceiver(ptrTransceiver, peer);
         }
     }
 
@@ -242,8 +141,7 @@ namespace Unity.WebRTC
 
         internal MediaStreamTrackEvent(IntPtr ptrTrack)
         {
-            Track = WebRTC.FindOrCreate(ptrTrack, ptr => new MediaStreamTrack(ptr));
+            Track = WebRTC.FindOrCreate(ptrTrack, MediaStreamTrack.Create);
         }
     }
 }
-

@@ -17,13 +17,11 @@
 
 #include "SoftwareCodec/SoftwareEncoder.h"
 
+#if defined(SUPPORT_VULKAN)
 #include "NvCodec/NvEncoderCuda.h"
-
+#endif
 
 #include "GraphicsDevice/IGraphicsDevice.h"
-#if defined(SUPPORT_METAL)
-#include "VideoToolbox/VTEncoderMetal.h"
-#endif
 
 namespace unity
 {
@@ -38,14 +36,24 @@ namespace webrtc
     bool EncoderFactory::GetHardwareEncoderSupport()
     {
 #if defined(SUPPORT_METAL)
-        return false;
+        // todo(kazuki): check VideoToolbox compatibility
+        return true;
 #else
-        return NvEncoder::LoadModule();
+        if(!NvEncoder::LoadModule())
+        {
+            return false;
+        }
+        return NvEncoder::CheckDriverVersion();
 #endif
     }
 
     //Can throw exception. The caller is expected to catch it.
-    std::unique_ptr<IEncoder> EncoderFactory::Init(int width, int height, IGraphicsDevice* device, UnityEncoderType encoderType)
+    std::unique_ptr<IEncoder> EncoderFactory::Init(
+        int width,
+        int height,
+        IGraphicsDevice* device,
+        UnityEncoderType encoderType,
+        UnityRenderingExtTextureFormat textureFormat)
     {
         std::unique_ptr<IEncoder> encoder;
         const GraphicsDeviceType deviceType = device->GetDeviceType();
@@ -54,9 +62,9 @@ namespace webrtc
             case GRAPHICS_DEVICE_D3D11: {
                 if (encoderType == UnityEncoderType::UnityEncoderHardware)
                 {
-                    encoder = std::make_unique<NvEncoderD3D11>(width, height, device);
+                    encoder = std::make_unique<NvEncoderD3D11>(width, height, device, textureFormat);
                 } else {
-                    encoder = std::make_unique<SoftwareEncoder>(width, height, device);
+                    encoder = std::make_unique<SoftwareEncoder>(width, height, device, textureFormat);
                 }
                 break;
             }
@@ -65,28 +73,34 @@ namespace webrtc
             case GRAPHICS_DEVICE_D3D12: {
                 if (encoderType == UnityEncoderType::UnityEncoderHardware)
                 {
-                    encoder = std::make_unique<NvEncoderD3D12>(width, height, device);
+                    encoder = std::make_unique<NvEncoderD3D12>(width, height, device, textureFormat);
                 } else {
-                    encoder = std::make_unique<SoftwareEncoder>(width, height, device);
+                    encoder = std::make_unique<SoftwareEncoder>(width, height, device, textureFormat);
                 }
                 break;
             }
 #endif
 #if defined(SUPPORT_OPENGL_CORE)
             case GRAPHICS_DEVICE_OPENGL: {
-                encoder = std::make_unique<NvEncoderGL>(width, height, device);
+                encoder = std::make_unique<NvEncoderGL>(width, height, device, textureFormat);
                 break;
             }
 #endif
 #if defined(SUPPORT_VULKAN)
             case GRAPHICS_DEVICE_VULKAN: {
-                encoder = std::make_unique<NvEncoderCuda>(width, height, device);
+                if (encoderType == UnityEncoderType::UnityEncoderHardware)
+                {
+                    encoder = std::make_unique<NvEncoderCuda>(width, height, device, textureFormat);
+                }
+                else {
+                    encoder = std::make_unique<SoftwareEncoder>(width, height, device, textureFormat);
+                }
                 break;
             }
 #endif            
-#if defined(SUPPORT_METAL) && defined(SUPPORT_SOFTWARE_ENCODER)
+#if defined(SUPPORT_METAL)
             case GRAPHICS_DEVICE_METAL: {
-                encoder = std::make_unique<SoftwareEncoder>(width, height, device);
+                encoder = std::make_unique<SoftwareEncoder>(width, height, device, textureFormat);
                 break;
             }
 #endif            
@@ -96,7 +110,7 @@ namespace webrtc
             }           
         }
         encoder->InitV();
-        return encoder;
+        return std::move(encoder);
     }
     
 } // end namespace webrtc
